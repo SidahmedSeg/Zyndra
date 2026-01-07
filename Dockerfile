@@ -14,6 +14,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Verify source code is copied
+RUN ls -la /build/cmd/server/ || (echo "cmd/server not found, listing /build:" && ls -la /build/)
+
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
