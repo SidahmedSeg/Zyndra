@@ -7,11 +7,11 @@ RUN apk add --no-cache git make
 # Set working directory
 WORKDIR /build
 
-# Copy go mod files
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy all source code
+# Copy entire source tree
 COPY . .
 
 # Build the application
