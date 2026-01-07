@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: click-deploy-db
+    environment:
+      POSTGRES_USER: clickdeploy
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: clickdeploy
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clickdeploy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - click-deploy-network
+
+  # Click-to-Deploy API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: click-deploy-api
+    ports:
+      - "8080:8080"
+    environment:
+      # Server
+      PORT: 8080
+      ENVIRONMENT: development
+      
+      # Database
+      DATABASE_URL: postgres://clickdeploy:devpassword@postgres:5432/clickdeploy?sslmode=disable
+      
+      # Casdoor (update with your values)
+      CASDOOR_ENDPOINT: ${CASDOOR_ENDPOINT:-https://casdoor.example.com}
+      CASDOOR_CLIENT_ID: ${CASDOOR_CLIENT_ID:-your_client_id}
+      CASDOOR_CLIENT_SECRET: ${CASDOOR_CLIENT_SECRET:-your_client_secret}
+      
+      # OpenStack (using mock for development)
+      INFRA_SERVICE_URL: ${INFRA_SERVICE_URL:-http://localhost:8080}
+      INFRA_SERVICE_API_KEY: ${INFRA_SERVICE_API_KEY:-test-key}
+      USE_MOCK_INFRA: ${USE_MOCK_INFRA:-true}
+      
+      # Registry (update with your values)
+      REGISTRY_URL: ${REGISTRY_URL:-https://registry.example.com}
+      REGISTRY_USERNAME: ${REGISTRY_USERNAME:-admin}
+      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-password}
+      
+      # BuildKit (if running locally)
+      BUILDKIT_ADDRESS: ${BUILDKIT_ADDRESS:-unix:///run/buildkit/buildkitd.sock}
+      BUILD_DIR: /tmp/click-deploy-builds
+      
+      # GitHub OAuth (update with your values)
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URL: ${GITHUB_REDIRECT_URL:-http://localhost:8080/git/callback/github}
+      
+      # GitLab OAuth (update with your values)
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      GITLAB_REDIRECT_URL: ${GITLAB_REDIRECT_URL:-http://localhost:8080/git/callback/gitlab}
+      
+      # Webhook
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-dev-webhook-secret}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      
+      # DNS
+      DNS_ZONE_ID: ${DNS_ZONE_ID:-}
+      
+      # Caddy
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://localhost:2019}
+      
+      # Prometheus
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://localhost:9090}
+      PROMETHEUS_TARGETS_DIR: /tmp/prometheus-targets
+      
+      # Centrifugo
+      CENTRIFUGO_API_URL: ${CENTRIFUGO_API_URL:-http://localhost:8000}
+      CENTRIFUGO_API_KEY: ${CENTRIFUGO_API_KEY:-}
+      
+      # Security
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Mount BuildKit socket if available
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount build directory
+      - click-deploy-builds:/tmp/click-deploy-builds
+      # Mount Prometheus targets directory
+      - prometheus-targets:/tmp/prometheus-targets
+    networks:
+      - click-deploy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local
+  click-deploy-builds:
+    driver: local
+  prometheus-targets:
+    driver: local
+
+networks:
+  click-deploy-network:
+    driver: bridge
+

@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+*.docx
+*.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+server
+*.exe
+*.test
+*.out
+*.prof
+
+# Dependencies
+vendor/
+node_modules/
+
+# Test files
+*_test.go
+internal/testutil/
+
+# Frontend (if building separately)
+web/node_modules/
+web/.next/
+web/dist/
+web/build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+/tmp/click-deploy-builds
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage
+coverage/
+*.coverprofile
+

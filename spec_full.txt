@@ -1,0 +1,2367 @@
+Click to Deploy
+Technical Specification Document
+PaaS Module for OpenStack-Based Cloud Platform
+Property
+Value
+Version
+1.0
+Date
+January 2026
+Author
+INTELIFOX
+Status
+Draft
+Classification
+Internal
+
+1. Executive Summary
+Click to Deploy is a Platform-as-a-Service (PaaS) module designed to simplify application deployment on OpenStack infrastructure. It provides a no-code, canvas-based interface that allows developers to deploy applications directly from GitHub or GitLab repositories with zero configuration.
+
+The module leverages Railpack for automatic build detection and container image generation, and integrates natively with OpenStack services for compute, networking, storage, and database provisioning.
+
+1.1 Key Features
+	•	Canvas-based visual interface for infrastructure topology (React Flow)
+	•	GitHub and GitLab integration with OAuth authentication
+	•	Automatic build detection using Railpack (Go, Node.js, Python, PHP, Ruby, static sites)
+	•	Managed database provisioning (PostgreSQL, MySQL, Redis) with auto-volumes
+	•	Persistent volume management with automatic database attachment
+	•	Integration with INTELIFOX OpenStack Service via HTTP API
+	•	Generated URLs with custom domain support (CNAME validation)
+	•	Real-time build and runtime log streaming
+	•	Environment variable management with database URL linking
+	•	Auto-deploy on git push via webhooks
+	•	Deployment rollback support
+	•	Multi-database support: SQLite (dev), PostgreSQL, MariaDB (prod)
+
+1.2 Target Users
+	•	Developers seeking simplified deployment workflows
+	•	DevOps teams managing multiple applications
+	•	Organizations requiring sovereign cloud infrastructure
+	•	Teams transitioning from Heroku, Railway, or Render
+
+2. Architecture Overview
+2.1 Design Principles
+	•	Monolith-first architecture - single binary deployment
+	•	Integration via HTTP calls to existing INTELIFOX OpenStack service
+	•	Flexible database: SQLite (dev), PostgreSQL or MariaDB (production)
+	•	No external message brokers or caching layers required
+	•	Simple, efficient, maintainable codebase
+
+2.2 System Components
+Component
+Technology
+Purpose
+API Server
+Go + Chi router
+REST API, WebSocket endpoints
+Worker Pool
+Go goroutines
+Background job processing
+Database
+SQLite / PostgreSQL / MariaDB
+State, queues, logs, audit
+Build Engine
+Railpack + BuildKit
+Container image generation
+Registry
+Harbor / Docker Registry
+Container image storage
+Git Connector
+go-git, go-github, go-gitlab
+Repository operations
+OpenStack Client
+HTTP Client
+Calls to INTELIFOX OpenStack Service
+
+2.3 Integration Architecture
+Click to Deploy integrates with Caddy for dynamic routing and SSL termination. All service traffic flows through Caddy, which routes to the appropriate backend based on subdomain.
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         User Browser                               │
+└─────────────────────────────────┬───────────────────────────────────┘
+                                  │
+            ┌─────────────────────┴─────────────────────┐
+            │                                           │
+            ▼                                           ▼
+┌─────────────────────────┐               ┌─────────────────────────┐
+│  Click to Deploy API   │               │        Caddy            │
+│  api.armonika.cloud    │               │  *.projects.armonika.   │
+│                        │◀─────────────▶│  cloud                  │
+│  - Project mgmt        │  Route API    │                         │
+│  - Deploy triggers     │               │  - Wildcard SSL         │
+│  - Canvas state        │               │  - Dynamic routing      │
+└───────────┬────────────┘               │  - Custom domains       │
+            │                            └───────────┬─────────────┘
+            │                                        │
+    ┌───────┴───────┐                    ┌───────────┴───────────┐
+    │               │                    │                       │
+    ▼               ▼                    ▼                       ▼
+┌────────┐   ┌────────────┐      ┌─────────────┐         ┌─────────────┐
+│Database│   │ INTELIFOX  │      │back4525     │         │front8821    │
+│        │   │ OpenStack  │      │41.x.x.11    │         │41.x.x.10    │
+└────────┘   │ Service    │      └─────────────┘         └─────────────┘
+             └────────────┘
+
+2.4 Routing Architecture (Caddy)
+Caddy serves as the reverse proxy for all deployed services, providing automatic SSL and dynamic routing:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                            Caddy                                   │
+│                                                                    │
+│  Wildcard DNS: *.projects.armonika.cloud → Caddy IP               │
+│  Wildcard SSL: *.projects.armonika.cloud (Let's Encrypt)          │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │ Dynamic Route Table (managed via Admin API)                  │ │
+│  │                                                              │ │
+│  │  back4525.projects.armonika.cloud  ──▶  41.100.50.11:8080   │ │
+│  │  front8821.projects.armonika.cloud ──▶  41.100.50.10:3000   │ │
+│  │  api3392.projects.armonika.cloud   ──▶  41.100.50.12:8000   │ │
+│  │                                                              │ │
+│  │  Custom domains (on-demand SSL):                             │ │
+│  │  api.customer.com  ──▶  41.100.50.11:8080                   │ │
+│  │  app.startup.io    ──▶  41.100.50.10:3000                   │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+
+Flow:
+1. User deploys service → Click to Deploy provisions VM + Floating IP
+2. Click to Deploy calls Caddy Admin API to register route
+3. User accesses back4525.projects.armonika.cloud
+4. Caddy terminates SSL, proxies to 41.100.50.11:8080
+
+2.5 OpenStack Service Operations
+All infrastructure operations are performed via HTTP calls to the existing INTELIFOX OpenStack service:
+
+Operation
+Click to Deploy Calls
+OpenStack Service Handles
+Create VM
+POST /api/instances
+Nova API
+Allocate Floating IP
+POST /api/floating-ips
+Neutron API
+Create Volume
+POST /api/volumes
+Cinder API
+Attach Volume
+POST /api/volumes/:id/attach
+Cinder API
+Create Security Group
+POST /api/security-groups
+Neutron API
+Create DNS Record
+POST /api/dns/records
+Designate API
+Create Network/Subnet
+POST /api/networks
+Neutron API
+Store Secrets
+POST /api/secrets
+Barbican API
+
+Note: The actual endpoint structure will be adapted to match the existing INTELIFOX OpenStack service API contract.
+
+3. Technology Stack
+3.1 Backend
+Component
+Technology
+Justification
+Language
+Go 1.22+
+Performance, concurrency, BuildKit native
+HTTP Router
+chi v5
+Lightweight, stdlib compatible, middleware support
+Database Driver
+database/sql + drivers
+SQLite (modernc.org/sqlite), PostgreSQL (pgx), MariaDB (go-sql-driver/mysql)
+Migrations
+golang-migrate
+SQL-based migrations, multi-database support
+Authentication
+casdoor/casdoor-go-sdk
+JWT validation, Casdoor integration
+OpenStack Client
+net/http
+HTTP calls to INTELIFOX OpenStack Service
+Git Operations
+go-git v5
+Pure Go implementation, no libgit2 dependency
+GitHub API
+google/go-github v60
+Official client, full API coverage
+GitLab API
+xanzy/go-gitlab
+Comprehensive GitLab API client
+WebSocket
+nhooyr.io/websocket
+Modern, RFC 6455 compliant
+Config
+kelseyhightower/envconfig
+Environment-based configuration
+
+3.1.1 Database Support
+Click to Deploy supports multiple database backends:
+Database
+Use Case
+Driver
+SQLite
+Local development, single-node deployment
+modernc.org/sqlite (pure Go)
+PostgreSQL
+Production, multi-node, advanced features
+jackc/pgx/v5
+MariaDB
+Production, MySQL-compatible environments
+go-sql-driver/mysql
+
+The database is selected via the DATABASE_URL environment variable format:
+# SQLite
+DATABASE_URL=sqlite:///var/lib/click-deploy/data.db
+
+# PostgreSQL
+DATABASE_URL=postgres://user:pass@localhost:5432/clickdeploy?sslmode=disable
+
+# MariaDB
+DATABASE_URL=mysql://user:pass@localhost:3306/clickdeploy
+
+3.2 Build System
+Component
+Technology
+Purpose
+Build Engine
+Railpack
+Zero-config container builds
+Container Builder
+BuildKit
+Efficient image construction
+Container Registry
+Harbor
+Enterprise registry with security scanning
+Fallback
+Dockerfile
+Custom builds when auto-detect fails
+
+3.3 Frontend
+Component
+Technology
+Purpose
+Framework
+React 18+
+Component-based UI
+State Management
+Zustand
+Lightweight state management
+Canvas Library
+React Flow
+Node-based visual editor for infrastructure
+HTTP Client
+Axios
+API communication
+WebSocket
+Native WebSocket API
+Real-time log streaming
+Styling
+Tailwind CSS
+Utility-first CSS framework
+Icons
+Lucide React
+Consistent iconography
+
+3.3.1 React Flow Node Types
+Node Type
+Component
+Visual
+service
+ServiceNode
+Code icon, status indicator, URL
+database
+DatabaseNode
+DB icon, engine type, storage size
+volume
+VolumeNode
+Disk icon, size, mount path
+
+3.3.2 React Flow Edge Types
+Edge Type
+Meaning
+Style
+env-link
+Env var linked to database
+Dashed line, labeled with var name
+volume-mount
+Volume mounted to service
+Solid line, labeled with mount path
+
+3.4 Supported Runtimes (via Railpack)
+Runtime
+Detection
+Build Command
+Node.js
+package.json
+npm/yarn/pnpm install && build
+Python
+requirements.txt, pyproject.toml
+pip install && collect static
+Go
+go.mod
+go build
+PHP
+composer.json
+composer install
+Ruby
+Gemfile
+bundle install
+Static
+index.html, Staticfile
+Caddy server
+
+3.5 Routing Layer (Caddy)
+Caddy serves as the reverse proxy for all deployed services, providing automatic SSL and dynamic routing without restarts.
+
+Feature
+Implementation
+Benefit
+Dynamic routing
+Admin API (localhost:2019)
+Add/remove routes without restart
+Wildcard SSL
+Let's Encrypt DNS-01 challenge
+Single cert for *.projects.armonika.cloud
+Custom domain SSL
+On-demand TLS
+Auto-provision cert when first request arrives
+Hot reload
+API-driven config
+Zero downtime route updates
+Health checks
+Passive health checks
+Auto-remove unhealthy backends
+
+3.5.1 Caddy Configuration
+# /etc/caddy/Caddyfile
+{
+    admin localhost:2019  # Admin API for dynamic routes
+    email admin@armonika.cloud
+}
+
+# Wildcard for all deployed services
+*.projects.armonika.cloud {
+    tls {
+        dns designate {
+            os_auth_url {env.OS_AUTH_URL}
+            os_username {env.OS_USERNAME}
+            os_password {env.OS_PASSWORD}
+            os_project_name {env.OS_PROJECT_NAME}
+        }
+    }
+    
+    # Routes added dynamically via Admin API
+    # Initial empty config - routes populated by Click to Deploy
+}
+
+3.5.2 Caddy Client (Go)
+Click to Deploy manages Caddy routes via its Admin API:
+// internal/proxy/caddy.go
+
+type CaddyClient struct {
+    adminURL string  // http://localhost:2019
+    client   *http.Client
+}
+
+// AddRoute registers a new service route
+func (c *CaddyClient) AddRoute(subdomain, backendIP string, port int) error {
+    route := map[string]any{
+        "@id": subdomain,
+        "match": []map[string]any{
+            {"host": []string{subdomain + ".projects.armonika.cloud"}},
+        },
+        "handle": []map[string]any{
+            {
+                "handler": "reverse_proxy",
+                "upstreams": []map[string]any{
+                    {"dial": fmt.Sprintf("%s:%d", backendIP, port)},
+                },
+            },
+        },
+    }
+    return c.post("/config/apps/http/servers/srv0/routes", route)
+}
+
+// RemoveRoute removes a service route
+func (c *CaddyClient) RemoveRoute(subdomain string) error {
+    return c.delete("/id/" + subdomain)
+}
+
+// AddCustomDomain adds a custom domain with auto-SSL
+func (c *CaddyClient) AddCustomDomain(domain, backendIP string, port int) error {
+    // Caddy auto-provisions SSL via Let's Encrypt HTTP-01
+    route := map[string]any{
+        "@id": "custom-" + domain,
+        "match": []map[string]any{
+            {"host": []string{domain}},
+        },
+        "handle": []map[string]any{
+            {
+                "handler": "reverse_proxy",
+                "upstreams": []map[string]any{
+                    {"dial": fmt.Sprintf("%s:%d", backendIP, port)},
+                },
+            },
+        },
+    }
+    return c.post("/config/apps/http/servers/srv0/routes", route)
+}
+
+4. Data Models
+4.1 Multi-Tenancy Architecture
+Click to Deploy integrates with Casdoor for authentication and organization management. Casdoor handles users, organizations, and membership. Click to Deploy only manages projects and resources, referencing Casdoor's organization ID.
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          Casdoor                               │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ Organizations, Users, Membership, Roles, Permissions    │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────┬───────────────────────────────┘
+                                  │ JWT (org_id, user_id, roles)
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Click to Deploy                           │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ Projects (linked to casdoor_org_id)                     │  │
+│  │  └── Services, Databases, Volumes, Deployments          │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+
+Hierarchy:
+- Organization (Casdoor): Top-level tenant, manages users/roles
+- Project (Click to Deploy): Environment within org, maps to OpenStack tenant
+- Resources: Services, databases, volumes belong to a Project
+
+4.2 Authentication Flow
+Click to Deploy validates JWTs issued by Casdoor and extracts context:
+
+// JWT claims from Casdoor
+type CasdoorClaims struct {
+    Sub      string `json:"sub"`       // User ID
+    Name     string `json:"name"`      // Username
+    Owner    string `json:"owner"`     // Organization ID
+    Roles    []string `json:"roles"`   // User roles in org
+    jwt.RegisteredClaims
+}
+
+// Middleware extracts context from JWT
+func AuthMiddleware(casdoorEndpoint, clientID string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            token := extractBearerToken(r)
+            claims, err := validateCasdoorJWT(token, casdoorEndpoint, clientID)
+            if err != nil {
+                http.Error(w, "Unauthorized", 401)
+                return
+            }
+            ctx := context.WithValue(r.Context(), "user_id", claims.Sub)
+            ctx = context.WithValue(ctx, "org_id", claims.Owner)
+            ctx = context.WithValue(ctx, "roles", claims.Roles)
+            next.ServeHTTP(w, r.WithContext(ctx))
+        })
+    }
+}
+
+4.2.1 OpenStack Tenant ID Resolution
+The OpenStack tenant ID for each organization is provided by Casdoor. Implementation options (to be decided during development):
+
+// Option A: Custom JWT claim
+type CasdoorClaims struct {
+    // ... standard claims ...
+    OpenStackTenantID string `json:"openstack_tenant_id"`
+}
+
+// Option B: Casdoor API call
+func GetOrgTenantID(casdoorClient *casdoor.Client, orgID string) (string, error) {
+    org, err := casdoorClient.GetOrganization(orgID)
+    return org.OpenStackTenantID, err
+}
+
+// Either way, tenant ID flows to infrastructure client:
+infraClient.CreateInstance(ctx, infra.CreateInstanceRequest{
+    TenantID: tenantID,  // From JWT or API
+    ...
+})
+
+4.3 Core Tables
+4.3.1 Projects
+Projects belong to a Casdoor organization and map to an OpenStack tenant:
+CREATE TABLE projects (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    casdoor_org_id      VARCHAR(255) NOT NULL, -- From Casdoor JWT 'owner' claim
+    name                VARCHAR(255) NOT NULL,
+    slug                VARCHAR(100) NOT NULL,
+    description         TEXT,
+    -- OpenStack mapping
+    openstack_tenant_id VARCHAR(255) NOT NULL, -- OpenStack project/tenant ID
+    openstack_network_id VARCHAR(255), -- Project's private network
+    -- Settings
+    default_region      VARCHAR(100),
+    auto_deploy         BOOLEAN DEFAULT true,
+    -- Metadata
+    created_by          VARCHAR(255), -- Casdoor user ID who created
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(casdoor_org_id, slug)
+);
+
+CREATE INDEX idx_projects_casdoor_org ON projects(casdoor_org_id);
+CREATE INDEX idx_projects_tenant ON projects(openstack_tenant_id);
+
+4.3.2 Git Connections (per Organization)
+Git connections are shared across all projects in an organization:
+CREATE TABLE git_connections (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    casdoor_org_id  VARCHAR(255) NOT NULL, -- From Casdoor
+    provider        VARCHAR(50) NOT NULL, -- github, gitlab
+    access_token    TEXT NOT NULL, -- encrypted
+    refresh_token   TEXT, -- encrypted
+    token_expires_at TIMESTAMPTZ,
+    account_name    VARCHAR(255), -- GitHub/GitLab username or org
+    account_id      VARCHAR(255), -- Provider's account ID
+    connected_by    VARCHAR(255), -- Casdoor user ID who connected
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_git_connections_org ON git_connections(casdoor_org_id);
+
+4.3.3 Git Sources (per Service)
+CREATE TABLE git_sources (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id      UUID REFERENCES services(id) ON DELETE CASCADE,
+    git_connection_id UUID REFERENCES git_connections(id),
+    provider        VARCHAR(50) NOT NULL, -- github, gitlab
+    repo_owner      VARCHAR(255) NOT NULL,
+    repo_name       VARCHAR(255) NOT NULL,
+    branch          VARCHAR(255) DEFAULT 'main',
+    root_dir        VARCHAR(255) DEFAULT '/',
+    webhook_id      VARCHAR(255),
+    webhook_secret  TEXT, -- encrypted
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_git_sources_service ON git_sources(service_id);
+
+4.3.4 Services
+CREATE TABLE services (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id          UUID REFERENCES projects(id) ON DELETE CASCADE,
+    git_source_id       UUID REFERENCES git_sources(id),
+    name                VARCHAR(255) NOT NULL,
+    type                VARCHAR(50) NOT NULL, -- app, database, volume
+    status              VARCHAR(50) DEFAULT 'pending',
+    instance_size       VARCHAR(50) DEFAULT 'medium',
+    port                INT DEFAULT 8080,
+    -- Infrastructure
+    openstack_instance_id   VARCHAR(255),
+    openstack_fip_id        VARCHAR(255), -- Floating IP ID
+    openstack_fip_address   INET,         -- Floating IP address
+    security_group_id       VARCHAR(255),
+    -- Generated URL (available after provision)
+    subdomain           VARCHAR(100) UNIQUE, -- e.g., 'back4525'
+    generated_url       TEXT, -- e.g., 'https://back4525.projects.armonika.cloud'
+    current_image_tag   VARCHAR(255),
+    -- Canvas position
+    canvas_x            INT DEFAULT 0,
+    canvas_y            INT DEFAULT 0,
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_services_project ON services(project_id);
+CREATE INDEX idx_services_subdomain ON services(subdomain);
+
+4.3.5 Custom Domains
+CREATE TABLE custom_domains (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id      UUID REFERENCES services(id) ON DELETE CASCADE,
+    domain          VARCHAR(255) NOT NULL UNIQUE,
+    -- Validation
+    validation_type VARCHAR(50) DEFAULT 'cname', -- cname, txt
+    validation_target VARCHAR(255), -- CNAME target (e.g., back4525.projects.armonika.cloud)
+    validated_at    TIMESTAMPTZ,
+    status          VARCHAR(50) DEFAULT 'pending', -- pending, validating, active, failed
+    -- SSL/TLS
+    ssl_status      VARCHAR(50) DEFAULT 'pending', -- pending, provisioning, active
+    ssl_expires_at  TIMESTAMPTZ,
+    -- Metadata
+    is_primary      BOOLEAN DEFAULT false,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_custom_domains_service ON custom_domains(service_id);
+CREATE INDEX idx_custom_domains_domain ON custom_domains(domain);
+CREATE INDEX idx_custom_domains_status ON custom_domains(status);
+
+4.3.6 Environment Variables
+Environment variables can be static values or linked to database connection URLs:
+CREATE TABLE env_vars (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id      UUID REFERENCES services(id) ON DELETE CASCADE,
+    key             VARCHAR(255) NOT NULL,
+    value           TEXT, -- encrypted, NULL if linked to database
+    is_secret       BOOLEAN DEFAULT false,
+    -- Database linking (for DATABASE_URL, etc.)
+    linked_database_id UUID REFERENCES databases(id),
+    link_type       VARCHAR(50), -- connection_url, host, port, username, password, database
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(service_id, key)
+);
+
+CREATE INDEX idx_env_vars_service ON env_vars(service_id);
+CREATE INDEX idx_env_vars_linked_db ON env_vars(linked_database_id);
+
+4.3.7 Deployments
+CREATE TABLE deployments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id      UUID REFERENCES services(id) ON DELETE CASCADE,
+    commit_sha      VARCHAR(40),
+    commit_message  TEXT,
+    commit_author   VARCHAR(255),
+    status          VARCHAR(50) DEFAULT 'queued',
+    image_tag       VARCHAR(255),
+    build_duration  INT, -- seconds
+    deploy_duration INT, -- seconds
+    error_message   TEXT,
+    triggered_by    VARCHAR(50), -- webhook, manual, rollback
+    started_at      TIMESTAMPTZ,
+    finished_at     TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_deployments_service ON deployments(service_id);
+CREATE INDEX idx_deployments_status ON deployments(status);
+
+4.3.8 Deployment Logs
+CREATE TABLE deployment_logs (
+    id              BIGSERIAL PRIMARY KEY,
+    deployment_id   UUID REFERENCES deployments(id) ON DELETE CASCADE,
+    timestamp       TIMESTAMPTZ DEFAULT now(),
+    phase           VARCHAR(50), -- clone, build, push, deploy
+    level           VARCHAR(20), -- info, warn, error
+    message         TEXT,
+    metadata        JSONB
+);
+
+CREATE INDEX idx_deployment_logs_deployment ON deployment_logs(deployment_id);
+CREATE INDEX idx_deployment_logs_timestamp ON deployment_logs(timestamp);
+
+4.3.9 Databases (Managed)
+Each database automatically gets a persistent volume attached. The connection URL is generated and can be linked to service environment variables.
+CREATE TABLE databases (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id      UUID REFERENCES services(id) ON DELETE CASCADE,
+    engine          VARCHAR(50) NOT NULL, -- postgresql, mysql, redis
+    version         VARCHAR(50),
+    size            VARCHAR(50) DEFAULT 'small',
+    -- Auto-created volume
+    volume_id       UUID REFERENCES volumes(id),
+    volume_size_mb  INT DEFAULT 500, -- starts at 500MB
+    -- Networking (internal only, NO public access)
+    internal_hostname VARCHAR(255), -- e.g., pg7743.internal.armonika.cloud
+    internal_ip     INET,
+    port            INT,
+    -- Credentials (auto-generated)
+    username        VARCHAR(255),
+    password        TEXT, -- encrypted
+    database_name   VARCHAR(255),
+    -- Generated connection URL (uses internal hostname)
+    connection_url  TEXT, -- e.g., postgresql://user:pass@pg7743.internal.armonika.cloud:5432/mydb
+    -- OpenStack resources
+    openstack_instance_id VARCHAR(255),
+    openstack_port_id     VARCHAR(255),
+    security_group_id     VARCHAR(255),
+    -- Status
+    status          VARCHAR(50) DEFAULT 'pending',
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_databases_service ON databases(service_id);
+CREATE INDEX idx_databases_hostname ON databases(internal_hostname);
+
+4.3.10 Database Connection URL Formats
+Connection URLs use internal hostnames (never IPs) for service discovery:
+// PostgreSQL
+postgresql://{username}:{password}@{internal_hostname}:{port}/{database_name}
+postgresql://app_user:s3cr3t@pg7743.internal.armonika.cloud:5432/mydb
+
+// MySQL
+mysql://{username}:{password}@{internal_hostname}:{port}/{database_name}
+mysql://app_user:s3cr3t@mysql2156.internal.armonika.cloud:3306/mydb
+
+// Redis
+redis://:{password}@{internal_hostname}:{port}/0
+redis://:s3cr3t@redis9901.internal.armonika.cloud:6379/0
+
+4.3.11 Volumes
+Volumes provide persistent storage. They are auto-created for databases and can be manually created for services.
+CREATE TABLE volumes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id      UUID REFERENCES projects(id) ON DELETE CASCADE,
+    name            VARCHAR(255) NOT NULL,
+    size_mb         INT NOT NULL, -- size in megabytes
+    mount_path      VARCHAR(255), -- e.g., /var/lib/postgresql/data
+    -- Attachment
+    attached_to_service_id  UUID REFERENCES services(id),
+    attached_to_database_id UUID REFERENCES databases(id),
+    -- OpenStack
+    openstack_volume_id VARCHAR(255),
+    openstack_attachment_id VARCHAR(255),
+    -- Status
+    status          VARCHAR(50) DEFAULT 'pending', -- pending, available, attached
+    -- Type
+    volume_type     VARCHAR(50) DEFAULT 'user', -- user, database_auto
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_volumes_project ON volumes(project_id);
+CREATE INDEX idx_volumes_attached_service ON volumes(attached_to_service_id);
+CREATE INDEX idx_volumes_attached_database ON volumes(attached_to_database_id);
+
+4.1.9 Job Queue
+CREATE TABLE jobs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type            VARCHAR(50) NOT NULL, -- build, deploy, destroy, provision_db
+    payload         JSONB NOT NULL,
+    status          VARCHAR(50) DEFAULT 'pending',
+    attempts        INT DEFAULT 0,
+    max_attempts    INT DEFAULT 3,
+    error           TEXT,
+    run_at          TIMESTAMPTZ DEFAULT now(),
+    started_at      TIMESTAMPTZ,
+    completed_at    TIMESTAMPTZ,
+    locked_by       VARCHAR(255),
+    locked_until    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_jobs_status_run_at ON jobs(status, run_at);
+CREATE INDEX idx_jobs_locked ON jobs(locked_until);
+
+5. API Specification
+5.1 Authentication (Casdoor)
+All API endpoints require a valid JWT issued by Casdoor. The org_id is extracted from the token's 'owner' claim:
+
+Authorization: Bearer <casdoor_jwt>
+
+# JWT contains:
+# - sub: user_id
+# - owner: org_id (Casdoor organization)
+# - roles: user roles in the organization
+
+# Project context passed via header or path:
+X-Project-ID: <project_uuid>     # For project-scoped endpoints
+
+5.2 Base URL
+https://api.projects.armonika.cloud/v1/click-deploy
+
+5.3 Endpoints
+Note: Organization management (create, members, roles) is handled by Casdoor. Click to Deploy only manages projects and resources.
+
+5.3.1 Git Connections (Organization-scoped)
+Method
+Endpoint
+Description
+GET
+/git/connections
+List org's git provider connections
+GET
+/git/connect/:provider
+Initiate OAuth flow (github/gitlab)
+GET
+/git/callback/:provider
+OAuth callback handler
+DELETE
+/git/connections/:id
+Disconnect git provider
+GET
+/git/repos
+List accessible repositories
+GET
+/git/repos/:owner/:repo/branches
+List branches for a repo
+GET
+/git/repos/:owner/:repo/tree
+Get directory structure
+
+5.3.2 Projects (Organization-scoped)
+Method
+Endpoint
+Description
+GET
+/projects
+List organization's projects
+POST
+/projects
+Create new project (requires OpenStack tenant ID)
+GET
+/projects/:id
+Get project details with services
+PATCH
+/projects/:id
+Update project settings
+DELETE
+/projects/:id
+Delete project and all resources
+
+5.3.3 Services (Project-scoped)
+Method
+Endpoint
+Description
+GET
+/projects/:id/services
+List services in project
+POST
+/projects/:id/services
+Create new service
+GET
+/services/:id
+Get service details
+PATCH
+/services/:id
+Update service configuration
+DELETE
+/services/:id
+Delete service and resources
+PATCH
+/services/:id/position
+Update canvas position
+
+5.3.4 Deployments
+Method
+Endpoint
+Description
+GET
+/services/:id/deployments
+List deployments for service
+POST
+/services/:id/deploy
+Trigger new deployment
+POST
+/services/:id/rollback/:deployId
+Rollback to specific deployment
+GET
+/deployments/:id
+Get deployment details
+POST
+/deployments/:id/cancel
+Cancel in-progress deployment
+GET
+/deployments/:id/logs
+Get deployment logs (paginated)
+WS
+/deployments/:id/logs/stream
+Stream logs in real-time
+
+5.3.5 Environment Variables
+Method
+Endpoint
+Description
+GET
+/services/:id/env
+List environment variables
+POST
+/services/:id/env
+Add environment variable
+PATCH
+/services/:id/env/:key
+Update environment variable
+DELETE
+/services/:id/env/:key
+Delete environment variable
+POST
+/services/:id/env/bulk
+Bulk update variables
+POST
+/services/:id/env/import
+Import from .env file
+
+5.3.6 Databases
+Method
+Endpoint
+Description
+GET
+/projects/:id/databases
+List databases in project
+POST
+/projects/:id/databases
+Provision new database
+GET
+/databases/:id
+Get database details
+GET
+/databases/:id/credentials
+Get connection credentials
+DELETE
+/databases/:id
+Delete database
+
+5.3.7 Volumes
+Method
+Endpoint
+Description
+GET
+/projects/:id/volumes
+List volumes in project
+POST
+/projects/:id/volumes
+Create new volume
+GET
+/volumes/:id
+Get volume details
+PATCH
+/volumes/:id/attach
+Attach volume to service
+PATCH
+/volumes/:id/detach
+Detach volume from service
+DELETE
+/volumes/:id
+Delete volume
+
+5.3.8 Metrics & Logs
+Method
+Endpoint
+Description
+GET
+/services/:id/metrics
+Get service metrics (CPU, memory, network)
+GET
+/services/:id/logs
+Get runtime logs (paginated)
+WS
+/services/:id/logs/stream
+Stream runtime logs in real-time
+
+5.3.9 Custom Domains
+Method
+Endpoint
+Description
+GET
+/services/:id/domains
+List custom domains for service
+POST
+/services/:id/domains
+Add custom domain
+GET
+/domains/:id
+Get domain details and validation status
+POST
+/domains/:id/verify
+Trigger manual CNAME verification
+DELETE
+/domains/:id
+Remove custom domain
+PATCH
+/domains/:id/primary
+Set domain as primary
+
+5.3.10 Webhooks
+Method
+Endpoint
+Description
+POST
+/webhooks/github
+GitHub webhook handler
+POST
+/webhooks/gitlab
+GitLab webhook handler
+
+6. User Interface Specification
+6.1 Design Principles
+	•	Canvas-centric: All infrastructure visualized as nodes on a canvas
+	•	Modal-based configuration: Click any node to open configuration modal
+	•	Real-time feedback: Live updates for deployments and logs
+	•	Minimal navigation: Maximum 2 clicks to any action
+	•	Visual connections: Lines show relationships between resources
+
+6.2 Canvas View
+The canvas is the primary workspace where users manage their infrastructure visually.
+
+6.2.1 Canvas Elements
+Element
+Description
+Actions
+Service Node
+Git repo deployments
+Click to configure, drag to position
+Database Node
+Managed databases
+Click to view credentials, configure
+Volume Node
+Persistent storage
+Click to attach/detach from services
+Connection Line
+Shows relationships
+Auto-drawn when variables linked
+Add Button
+Floating action button
+Opens resource type selector
+
+6.2.2 Node States
+State
+Visual Indicator
+Description
+Not Configured
+Dashed border, gray
+Node created but not set up
+Ready
+Solid border, blue dot
+Configured, ready to deploy
+Deploying
+Pulsing animation
+Build or deployment in progress
+Live
+Green dot
+Running and healthy
+Failed
+Red dot
+Deployment or health check failed
+Stopped
+Gray square
+Manually stopped
+
+6.3 Configuration Modal
+Each node type has a modal with tabbed configuration:
+
+6.3.1 Git Repo Service Modal Tabs
+Tab
+Contents
+Source
+Repository selection, branch, root directory, auto-deploy toggle
+Instance
+Service name, instance size, count, port, region
+Variables
+Environment variables, database linking, .env import
+Domains
+Generated URL, custom domains, CNAME setup, SSL status
+Deploy
+Deploy button, deployment history, rollback actions
+Logs & Metrics
+Runtime/build logs toggle, CPU/memory charts
+
+6.3.2 Database Modal Tabs
+Tab
+Contents
+Config
+Engine type, version, size selection
+Credentials
+Auto-generated credentials, copy buttons
+Backups
+Manual backup trigger, scheduled backup settings
+Logs & Metrics
+Query logs, connection count, storage usage
+
+6.3.3 Volume Modal Tabs
+Tab
+Contents
+Config
+Volume name, size, mount path
+Attached To
+Service selector for attachment
+Usage
+Storage used/available visualization
+
+6.3.4 Domains Tab (Service Modal)
+The Domains tab shows generated URL and custom domain management:
+
+┌─────────────────────────────────────────────────────────────┐
+│  Domains                                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Generated URL                                              │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ https://backend-x7k2.projects.armonika.cloud    [📋] [↗]  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ● Active · SSL Enabled                                    │
+│                                                             │
+│  Custom Domains                                 [+ Add]    │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ api.mycompany.com                          ● Active │   │
+│  │ SSL: Valid until Mar 15, 2026              [Remove] │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ api-staging.mycompany.com           ○ Pending       │   │
+│  │ Waiting for DNS verification...      [Verify] [Remove]│   │
+│  │                                                     │   │
+│  │ Add this CNAME record at your DNS provider:         │   │
+│  │ ┌─────────────────────────────────────────────────┐ │   │
+│  │ │ api-staging.mycompany.com  →                   │ │   │
+│  │ │ backend-x7k2.projects.armonika.cloud           [📋]  │ │   │
+│  │ └─────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+6.3.5 Add Custom Domain Modal
+┌─────────────────────────────────────────────────────────────┐
+│  Add Custom Domain                                    [X]  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Domain Name                                                │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ api.mycompany.com                                   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ⚠️  You'll need to add a CNAME record at your DNS         │
+│     provider pointing to:                                  │
+│                                                             │
+│     backend-x7k2.projects.armonika.cloud                         │
+│                                                             │
+│  ☑ Set as primary domain                                   │
+│                                                             │
+│                                     [Cancel]  [Add Domain] │
+└─────────────────────────────────────────────────────────────┘
+
+6.4 Real-Time Features
+	•	Deployment progress: Step-by-step indicators with live log streaming
+	•	Build output: Terminal-style output during container builds
+	•	Runtime logs: Continuous log tail with search and filtering
+	•	Metrics: Auto-refreshing charts for CPU, memory, network, requests
+
+7. User Flows
+7.1 First-Time Setup
+	•	User navigates to Click to Deploy module
+	•	System detects no git providers connected
+	•	User clicks 'Connect GitHub' or 'Connect GitLab'
+	•	OAuth popup opens, user authorizes application
+	•	Callback completes, connection saved
+	•	User redirected to empty projects dashboard
+
+7.2 Create Project
+	•	User clicks 'New Project' button
+	•	Modal opens: enter project name, select region
+	•	User clicks 'Create'
+	•	Empty canvas loads with floating '+ Add' button
+
+7.3 Add Git Repository Service
+	•	User clicks '+ Add' on canvas
+	•	Type selector appears: Git Repo, Database, Volume
+	•	User selects 'Git Repo'
+	•	Unconfigured node appears on canvas
+	•	User clicks the node to open configuration modal
+	•	Source tab: User selects repository, branch, root directory
+	•	Instance tab: User configures size, port, region
+	•	Variables tab: User adds environment variables, links databases
+	•	Deploy tab: User clicks 'Deploy Now'
+	•	System immediately provisions infrastructure (LB, IP, DNS)
+	•	Generated URL appears in Domains tab (https://backend-x7k2.projects.armonika.cloud)
+	•	Build runs in background with real-time logs
+	•	When build completes, image deployed to provisioned infrastructure
+	•	Node status updates to 'Live' - app accessible at URL
+
+7.4 Add Database
+	•	User clicks '+ Add' on canvas
+	•	User selects 'Database'
+	•	Database node appears on canvas
+	•	User clicks node to configure
+	•	User selects engine (PostgreSQL, MySQL, Redis), version, size
+	•	User clicks 'Create'
+	•	Database provisions (async), node shows 'Provisioning'
+	•	When ready, credentials available in Credentials tab
+
+7.5 Link Database to Service
+	•	User opens service configuration modal
+	•	User navigates to Variables tab
+	•	User clicks '+ Add Variable'
+	•	User enters key: DATABASE_URL
+	•	User clicks 'Link' icon next to value field
+	•	Modal shows available databases in project
+	•	User selects database and connection format
+	•	Variable auto-populated with connection string
+	•	Canvas shows connection line from service to database
+	•	User clicks 'Save & Deploy' to apply changes
+
+7.6 Auto-Deploy on Push
+	•	Developer pushes code to connected repository
+	•	GitHub/GitLab sends webhook to /webhooks endpoint
+	•	System validates webhook signature
+	•	System creates new deployment record
+	•	Job queued for build and deploy
+	•	User sees deployment in progress on canvas (pulsing node)
+	•	Deployment completes, node returns to 'Live' state
+
+7.7 Rollback Deployment
+	•	User opens service configuration modal
+	•	User navigates to Deploy tab
+	•	User views deployment history
+	•	User clicks 'Rollback' on previous deployment
+	•	Confirmation dialog appears
+	•	User confirms rollback
+	•	System redeploys previous image version
+	•	Node status updates when complete
+
+7.8 Add Custom Domain
+Users can add custom domains after the service is deployed:
+	•	User opens service configuration modal
+	•	User navigates to Domains tab
+	•	User sees generated URL (https://backend-x7k2.projects.armonika.cloud)
+	•	User clicks '+ Add' in Custom Domains section
+	•	Modal opens: User enters domain (api.mycompany.com)
+	•	System shows CNAME target to configure
+	•	User adds CNAME record at their DNS provider
+	•	User clicks 'Verify' (or waits for auto-verification)
+	•	System validates CNAME, provisions SSL certificate
+	•	Domain shows 'Active' with SSL status
+	•	App now accessible at both generated URL and custom domain
+
+8. Build and Deployment Pipeline
+8.1 Pipeline Architecture
+The deployment pipeline provisions infrastructure FIRST, then builds in parallel, ensuring users get their URL immediately. Each service gets one instance with a direct floating IP (no load balancer for MVP).
+
+User clicks Deploy
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 1: Provision Infrastructure (immediate)               │
+│  - Generate unique subdomain (backend-x7k2)                 │
+│  - Reserve floating IP                                      │
+│  - Create DNS A record (Designate)                          │
+│  - Return URL to user: https://backend-x7k2.projects.armonika.cloud│
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼ (parallel with URL already available)
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 2: Build Container Image                              │
+│  - Clone repository                                         │
+│  - Railpack auto-detect and build                           │
+│  - Push image to registry                                   │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼ (when build completes)
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 3: Deploy Image                                       │
+│  - Create compute instance with image                       │
+│  - Inject environment variables                             │
+│  - Attach floating IP to instance                           │
+│  - Health check → Live                                      │
+└──────────────────────────────────────────────────────────────┘
+
+8.2 Pipeline Stages
+Stage
+Duration
+Actions
+User Sees
+Provision
+10-30s
+Reserve floating IP, create DNS record
+URL available immediately
+Clone
+2-10s
+Clone repository, checkout commit
+Building...
+Detect
+1-2s
+Railpack analyzes project
+Detected: Go/Node/Python
+Build
+30s-5min
+Install deps, compile, create image
+Build logs streaming
+Push
+10-30s
+Push to container registry
+Pushing image...
+Deploy
+30-60s
+Create instance, attach floating IP
+Deploying...
+Health Check
+10-60s
+Verify app responds
+Live ✓
+
+8.3 URL Generation
+Every service deployed from GitHub/GitLab gets an auto-generated public URL. Databases get internal URLs only.
+
+8.3.1 Service URLs (Public)
+// URL generation for services
+func GenerateServiceSubdomain(serviceName string, projectID string) string {
+    // Create 4-digit hash from project ID for uniqueness
+    hash := sha256.Sum256([]byte(projectID + serviceName))
+    suffix := fmt.Sprintf("%04d", binary.BigEndian.Uint16(hash[:2]) % 10000)
+    
+    // Sanitize service name (lowercase, alphanumeric)
+    name := sanitize(serviceName)
+    
+    // Combine: back4525
+    return fmt.Sprintf("%s%s", name, suffix)
+}
+
+// Generated URL format
+https://{subdomain}.projects.armonika.cloud
+
+// Examples:
+https://back4525.projects.armonika.cloud   // Backend service
+https://front8821.projects.armonika.cloud  // Frontend service
+https://api3392.projects.armonika.cloud    // API service
+
+8.3.2 Database URLs (Internal Only)
+Databases are NEVER exposed publicly. They get internal DNS names for service-to-service communication:
+// Internal URL generation for databases
+func GenerateDatabaseHostname(dbName string, projectID string) string {
+    hash := sha256.Sum256([]byte(projectID + dbName))
+    suffix := fmt.Sprintf("%04d", binary.BigEndian.Uint16(hash[:2]) % 10000)
+    name := sanitize(dbName)
+    return fmt.Sprintf("%s%s.internal.armonika.cloud", name, suffix)
+}
+
+// Internal hostname format
+{name}{hash}.internal.armonika.cloud
+
+// Examples:
+pg7743.internal.armonika.cloud      // PostgreSQL
+mysql2156.internal.armonika.cloud   // MySQL
+redis9901.internal.armonika.cloud   // Redis
+
+// Full connection URLs (auto-generated, injected as env vars):
+postgresql://user:pass@pg7743.internal.armonika.cloud:5432/mydb
+mysql://user:pass@mysql2156.internal.armonika.cloud:3306/mydb
+redis://:pass@redis9901.internal.armonika.cloud:6379
+
+8.3.3 Environment Variable Linking
+When a user links a database to a service, the internal URL is automatically injected:
+// User flow:
+// 1. Create database 'postgres-main' → System generates:
+//    - Internal hostname: pg7743.internal.armonika.cloud
+//    - Credentials: user=app_user, pass=<random>, db=postgres_main
+//    - Connection URL: postgresql://app_user:xxx@pg7743.internal.armonika.cloud:5432/postgres_main
+
+// 2. User opens backend service → Variables tab → Links DATABASE_URL to postgres-main
+//    - System stores: env_var.linked_database_id = postgres-main.id
+//    - System stores: env_var.link_type = 'connection_url'
+
+// 3. On deploy, system injects:
+DATABASE_URL=postgresql://app_user:xxx@pg7743.internal.armonika.cloud:5432/postgres_main
+
+// 4. If database credentials rotate, linked services auto-redeploy
+
+8.4 Custom Domains
+Users can add custom domains with CNAME validation. Caddy handles SSL automatically:
+
+8.4.1 Domain Setup Flow
+1. User adds custom domain: api.mycompany.com
+2. System generates validation target:
+   CNAME: api.mycompany.com → back4525.projects.armonika.cloud
+3. User configures DNS at their registrar
+4. System polls for CNAME validation (or user clicks 'Verify')
+5. Once validated:
+   - Click to Deploy calls Caddy Admin API to add route
+   - Caddy auto-provisions SSL via Let's Encrypt (on first request)
+   - Mark domain as active
+6. Traffic flows: api.mycompany.com → Caddy → 41.x.x.11:8080
+
+8.4.2 Adding Custom Domain to Caddy
+// After CNAME validation succeeds
+func (w *Worker) activateCustomDomain(ctx context.Context, domain *CustomDomain) error {
+    service, _ := w.store.GetService(ctx, domain.ServiceID)
+    
+    // Add route to Caddy - SSL is automatic
+    err := w.caddy.AddCustomDomain(
+        domain.Domain,                    // api.mycompany.com
+        service.OpenStackFIPAddress,      // 41.x.x.11
+        service.Port,                     // 8080
+    )
+    if err != nil {
+        return err
+    }
+    
+    // Update domain status
+    return w.store.UpdateDomainStatus(ctx, domain.ID, "active")
+}
+
+8.4.3 Domain Validation
+// CNAME validation check
+func ValidateCNAME(domain, expectedTarget string) (bool, error) {
+    cname, err := net.LookupCNAME(domain)
+    if err != nil {
+        return false, err
+    }
+    // Normalize and compare
+    return strings.TrimSuffix(cname, ".") == expectedTarget, nil
+}
+
+// Validation runs:
+// - Immediately when user clicks 'Verify'
+// - Every 5 minutes for pending domains (background job)
+// - Stops after 72 hours if not validated
+
+8.4.3 SSL Certificate Provisioning
+// After CNAME validation succeeds:
+1. Request certificate from Let's Encrypt (HTTP-01 challenge)
+2. Store certificate in Barbican (OpenStack secret store)
+3. Configure Octavia listener with SNI
+4. Set renewal reminder (30 days before expiry)
+
+// Certificate renewal job runs daily
+// Automatically renews certificates expiring within 30 days
+
+8.5 Railpack Integration
+Railpack provides zero-configuration builds for supported runtimes:
+
+// Build process (runs AFTER infrastructure provisioned)
+1. Clone repo to temporary directory
+2. Run: railpack build <repo-path> --tag <registry>/<image>:<tag>
+3. Railpack auto-detects runtime from project files
+4. BuildKit creates optimized multi-stage image
+5. Image pushed to container registry
+6. Trigger deploy_image job
+
+// Environment variables for customization
+RAILPACK_BUILD_CMD    - Override build command
+RAILPACK_START_CMD    - Override start command
+RAILPACK_INSTALL_CMD  - Override install command
+
+8.6 Dockerfile Fallback
+When Railpack cannot detect the project type, users can:
+	•	Provide a Dockerfile in the repository root or specified directory
+	•	Upload a custom Dockerfile through the UI
+	•	Configure build commands manually in the Source tab
+
+8.7 Infrastructure Provisioning via INTELIFOX Service
+All infrastructure operations are performed via HTTP calls to the INTELIFOX OpenStack Service. Each service gets a direct floating IP (no load balancer for MVP).
+
+// STEP 1: Provision Infrastructure (provision_infra job)
+// All calls go to INTELIFOX OpenStack Service
+
+// 1a. Reserve Floating IP
+fip, err := infraClient.AllocateFloatingIP(ctx, infra.AllocateFloatingIPRequest{
+    NetworkID: cfg.ExternalNetworkID,
+})
+// POST /api/floating-ips
+
+// 1b. Create DNS Record
+_, err = infraClient.CreateDNSRecord(ctx, infra.CreateDNSRecordRequest{
+    ZoneID:  cfg.DNSZoneID,
+    Name:    subdomain + "." + cfg.BaseDomain,
+    Type:    "A",
+    Records: []string{fip.Address},
+    TTL:     300,
+})
+// POST /api/dns/records
+
+// 1c. Save to database
+UPDATE services SET
+    openstack_fip_id = fip.ID,
+    openstack_fip_address = fip.Address,
+    generated_url = 'https://' || subdomain || '.' || base_domain,
+    status = 'provisioned'
+WHERE id = service_id;
+
+// URL is now available! Build runs in parallel...
+
+// STEP 3: Deploy Image (deploy_image job, after build)
+
+// 3a. Create Security Group
+sg, err := infraClient.CreateSecurityGroup(ctx, infra.CreateSecurityGroupRequest{
+    Name:        serviceName + "-sg",
+    Description: "Security group for " + serviceName,
+    Rules: []infra.SecurityGroupRule{
+        {Direction: "ingress", Protocol: "tcp", PortMin: servicePort, PortMax: servicePort, RemoteIP: "0.0.0.0/0"},
+    },
+})
+// POST /api/security-groups
+
+// 3b. Create Compute Instance
+instance, err := infraClient.CreateInstance(ctx, infra.CreateInstanceRequest{
+    Name:            serviceName,
+    FlavorID:        flavorID,
+    ImageID:         containerImageID,
+    NetworkID:       projectNetworkID,
+    SecurityGroupID: sg.ID,
+    UserData:        cloudInitScript,
+})
+// POST /api/instances
+
+// 3c. Wait for instance to be ACTIVE
+instance, err = infraClient.WaitForInstance(ctx, instance.ID, "ACTIVE", 120*time.Second)
+// GET /api/instances/:id (poll until status is ACTIVE)
+
+// 3d. Attach Floating IP to Instance
+err = infraClient.AttachFloatingIP(ctx, infra.AttachFloatingIPRequest{
+    FloatingIPID: fip.ID,
+    InstanceID:   instance.ID,
+})
+// POST /api/floating-ips/:id/attach
+
+// 3e. Register route with Caddy
+err = caddyClient.AddRoute(subdomain, fip.Address, servicePort)
+// POST http://localhost:2019/config/apps/http/servers/srv0/routes
+// Route: back4525.projects.armonika.cloud → 41.x.x.11:8080
+
+// 3f. Health check
+for i := 0; i < 30; i++ {
+    resp, err := http.Get("https://" + subdomain + ".projects.armonika.cloud/health")
+    if err == nil && resp.StatusCode == 200 {
+        break // App is live via Caddy!
+    }
+    time.Sleep(2 * time.Second)
+}
+
+// Update status
+UPDATE services SET
+    openstack_instance_id = instance.ID,
+    security_group_id = sg.ID,
+    status = 'live'
+WHERE id = service_id;
+
+8.8 Redeployment (on git push)
+When code is pushed, a new image is built and the existing instance is replaced. Caddy route stays the same:
+	•	Build new image with Railpack
+	•	Create new instance with new image
+	•	Wait for new instance health check
+	•	Reassign floating IP from old instance to new instance
+	•	Update Caddy route to point to new floating IP (if changed)
+	•	Terminate old instance
+	•	Zero-downtime achieved via IP reassignment
+
+9. Database & Networking Architecture
+9.1 Network Topology
+Each project has isolated networking. Services get public URLs via floating IPs, databases stay on internal network with internal DNS.
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Project Network (10.0.1.0/24)                                  │
+│                                                                 │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐      │
+│  │ frontend                │  │ backend                 │      │
+│  │ front8821.projects.     │  │ back4525.projects.      │      │
+│  │ armonika.cloud          │  │ armonika.cloud          │      │
+│  │                         │  │                         │      │
+│  │ Internal: 10.0.1.10     │  │ Internal: 10.0.1.11     │      │
+│  │ Floating: 41.x.x.10     │  │ Floating: 41.x.x.11     │      │
+│  │ (PUBLIC)                │  │ (PUBLIC)                │      │
+│  └─────────────────────────┘  └───────────┬─────────────┘      │
+│                                           │                     │
+│                                           │ DATABASE_URL=       │
+│                                           │ postgresql://...    │
+│                                           ▼                     │
+│                               ┌─────────────────────────┐      │
+│                               │ postgres-main           │      │
+│                               │ pg7743.internal.        │      │
+│                               │ armonika.cloud          │      │
+│                               │                         │      │
+│                               │ Internal: 10.0.1.50     │      │
+│                               │ NO Floating IP          │      │
+│                               │ (INTERNAL ONLY)         │      │
+│                               │ Volume: 500MB           │      │
+│                               └─────────────────────────┘      │
+│                                                                 │
+│  DNS Records:                                                   │
+│  - front8821.projects.armonika.cloud → 41.x.x.10 (public A)    │
+│  - back4525.projects.armonika.cloud  → 41.x.x.11 (public A)    │
+│  - pg7743.internal.armonika.cloud    → 10.0.1.50 (internal A)  │
+│                                                                 │
+│  Security Groups:                                               │
+│  - frontend-sg: 80, 443 from 0.0.0.0/0                         │
+│  - backend-sg: 8080 from 0.0.0.0/0                             │
+│  - postgres-sg: 5432 from 10.0.1.0/24 only (internal)          │
+└─────────────────────────────────────────────────────────────────┘
+
+9.2 Database Provisioning Flow
+When user adds a database, the system automatically provisions storage and networking:
+
+User clicks 'Add Database' → Selects PostgreSQL
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 1: Create Volume (Cinder)                             │
+│  - Size: 500MB (default, expandable)                        │
+│  - Type: SSD                                                │
+│  - Mount path: /var/lib/postgresql/data                     │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 2: Create Security Group                              │
+│  - Allow port 5432 from project subnet (10.0.1.0/24)        │
+│  - Deny all other inbound traffic                           │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 3: Create Database Instance (Nova)                    │
+│  - Image: PostgreSQL 16 (pre-built)                         │
+│  - Flavor: based on selected size                           │
+│  - Network: project internal subnet (no floating IP)        │
+│  - Security group: postgres-sg                              │
+│  - Attach volume to /var/lib/postgresql/data                │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  STEP 4: Initialize Database                                │
+│  - Generate username: db_user_{random}                      │
+│  - Generate password: {secure_random_32_chars}              │
+│  - Create database: {service_name}_db                       │
+│  - Generate connection URL                                  │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+Database ready! Connection URL available for linking.
+
+9.3 Environment Variable Linking
+Users link database connection URLs to service environment variables:
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Backend Service → Variables Tab                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Environment Variables                              [+ Add]    │
+│                                                                 │
+│  ┌────────────────┬───────────────────────────────┬──────────┐ │
+│  │ KEY            │ VALUE                         │          │ │
+│  ├────────────────┼───────────────────────────────┼──────────┤ │
+│  │ DATABASE_URL   │ 🔗 postgres-main              │ [Edit]   │ │
+│  │                │ postgresql://db_user_x7k2:    │          │ │
+│  │                │ ****@10.0.1.50:5432/app_db    │          │ │
+│  ├────────────────┼───────────────────────────────┼──────────┤ │
+│  │ REDIS_URL      │ 🔗 redis-cache                │ [Edit]   │ │
+│  │                │ redis://:****@10.0.1.51:6379  │          │ │
+│  └────────────────┴───────────────────────────────┴──────────┘ │
+│                                                                 │
+│  When linked:                                                   │
+│  - Connection URL auto-injected at deploy time                 │
+│  - If DB credentials rotate, services auto-redeploy            │
+│  - Canvas shows connection line from service to database       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+9.4 Database Volume Management
+Database volumes start at 500MB and can be expanded by the user:
+
+Action
+Process
+Downtime
+Expand volume
+Cinder extend → resize filesystem
+None (online)
+View usage
+Query from DB instance metrics
+None
+Backup
+Snapshot volume to Swift
+Brief pause
+Restore
+Create volume from snapshot
+New DB instance
+
+9.4.1 Volume Size Options
+Size
+Storage
+Use Case
+Starter
+500 MB
+Development, testing
+Small
+2 GB
+Small production apps
+Medium
+10 GB
+Medium traffic apps
+Large
+50 GB
+High traffic, lots of data
+Custom
+Up to 500 GB
+Enterprise needs
+
+9.5 Database Images (Pre-built)
+The platform provides pre-built database images for fast provisioning:
+
+Engine
+Versions
+Default Port
+Data Path
+PostgreSQL
+14, 15, 16
+5432
+/var/lib/postgresql/data
+MySQL
+8.0, 8.4
+3306
+/var/lib/mysql
+Redis
+7.0, 7.2
+6379
+/data (if persistent)
+
+9.5.1 Redis Persistence
+Redis can be configured for persistence or ephemeral mode:
+	•	Ephemeral (default): No volume, data lost on restart, fastest
+	•	RDB snapshots: Volume attached, periodic snapshots to disk
+	•	AOF persistence: Volume attached, append-only file for durability
+
+9.6 Security Architecture
+Each resource type has dedicated security groups:
+
+Resource
+Security Group Rules
+Frontend service
+Inbound: 80, 443 from 0.0.0.0/0 (public)
+Backend service
+Inbound: app port from 0.0.0.0/0 (public)
+PostgreSQL
+Inbound: 5432 from project subnet only (10.0.x.0/24)
+MySQL
+Inbound: 3306 from project subnet only
+Redis
+Inbound: 6379 from project subnet only
+
+Databases are NEVER exposed to the public internet. Only services within the same project can connect.
+
+10. Job Queue System
+10.1 Design
+The job queue uses PostgreSQL with the SKIP LOCKED pattern for distributed job processing without external dependencies.
+
+10.2 Job Types
+Job Type
+Payload
+Actions
+provision_infra
+service_id
+Reserve floating IP, create DNS record, generate URL
+build
+service_id, commit_sha
+Clone, Railpack build, push image
+deploy_image
+service_id, image_tag
+Create instance, attach floating IP, health check
+redeploy
+service_id, image_tag
+Create new instance, swap floating IP, terminate old
+destroy_service
+service_id
+Terminate instance, release floating IP, remove DNS
+provision_db
+database_id, engine, size
+Create Trove/Nova database
+destroy_db
+database_id
+Terminate database resources
+create_volume
+volume_id, size_gb
+Create Cinder volume
+attach_volume
+volume_id, service_id
+Attach volume to instance
+destroy_volume
+volume_id
+Delete Cinder volume
+validate_domain
+domain_id
+Check CNAME record, provision SSL
+renew_ssl
+domain_id
+Renew SSL certificate before expiry
+
+10.3 Worker Implementation
+func (w *Worker) Run(ctx context.Context) error {
+    for {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        job, err := w.store.ClaimJob(ctx)
+        if err != nil || job == nil {
+            time.Sleep(2 * time.Second)
+            continue
+        }
+
+        if err := w.processJob(ctx, job); err != nil {
+            w.store.FailJob(ctx, job.ID, err)
+        } else {
+            w.store.CompleteJob(ctx, job.ID)
+        }
+    }
+}
+
+10.4 Claiming Jobs (SKIP LOCKED)
+UPDATE jobs SET
+    status = 'running',
+    locked_by = $1,
+    locked_until = now() + interval '10 minutes',
+    started_at = now(),
+    attempts = attempts + 1
+WHERE id = (
+    SELECT id FROM jobs
+    WHERE status = 'pending'
+        AND run_at <= now()
+        AND attempts < max_attempts
+    ORDER BY created_at
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1
+)
+RETURNING *;
+
+11. Project Structure
+click-deploy/
+├── cmd/
+│   └── server/
+│       └── main.go              # Entry point
+├── internal/
+│   ├── api/
+│   │   ├── router.go            # Chi router setup
+│   │   ├── middleware.go        # Auth, logging, CORS
+│   │   ├── projects.go          # Project handlers
+│   │   ├── services.go          # Service handlers
+│   │   ├── deployments.go       # Deployment handlers
+│   │   ├── env_vars.go          # Environment variable handlers
+│   │   ├── databases.go         # Database handlers
+│   │   ├── volumes.go           # Volume handlers
+│   │   ├── domains.go           # Custom domain handlers
+│   │   ├── webhooks.go          # GitHub/GitLab webhooks
+│   │   └── websocket.go         # Log streaming
+│   ├── domain/
+│   │   ├── models.go            # Domain structs
+│   │   └── errors.go            # Domain errors
+│   ├── store/
+│   │   ├── db.go                # Multi-DB connection (SQLite/PG/MariaDB)
+│   │   ├── dialect.go           # SQL dialect abstraction
+│   │   ├── projects.go          # Project queries
+│   │   ├── services.go          # Service queries
+│   │   ├── deployments.go       # Deployment queries
+│   │   ├── env_vars.go          # Env var queries
+│   │   ├── databases.go         # Database queries
+│   │   ├── volumes.go           # Volume queries
+│   │   ├── custom_domains.go    # Custom domain queries
+│   │   ├── jobs.go              # Job queue queries
+│   │   └── git_connections.go   # Git connection storage
+│   ├── auth/
+│   │   ├── casdoor.go           # Casdoor JWT validation
+│   │   └── middleware.go        # Auth middleware
+│   ├── worker/
+│   │   ├── runner.go            # Job runner loop
+│   │   ├── provision.go         # Infrastructure provisioning
+│   │   ├── build.go             # Railpack/BuildKit build
+│   │   ├── deploy.go            # Image deployment to instances
+│   │   ├── database.go          # Database provisioning
+│   │   ├── volume.go            # Volume management
+│   │   └── domain.go            # Domain validation, SSL
+│   ├── git/
+│   │   ├── github.go            # GitHub API client
+│   │   ├── gitlab.go            # GitLab API client
+│   │   └── clone.go             # Git clone operations
+│   ├── infra/                    # INTELIFOX OpenStack Service Client
+│   │   ├── client.go            # HTTP client setup, auth
+│   │   ├── instances.go         # VM operations (Nova)
+│   │   ├── network.go           # Floating IPs, security groups
+│   │   ├── volumes.go           # Volume operations (Cinder)
+│   │   ├── dns.go               # DNS record operations
+│   │   └── secrets.go           # Secrets storage (Barbican)
+│   ├── build/
+│   │   ├── railpack.go          # Railpack wrapper
+│   │   └── buildkit.go          # BuildKit client
+│   ├── proxy/                    # Caddy reverse proxy client
+│   │   ├── caddy.go             # Caddy Admin API client
+│   │   └── routes.go            # Route management helpers
+│   ├── ssl/
+│   │   ├── acme.go              # Let's Encrypt client (custom domains)
+│   │   └── renewal.go           # Certificate renewal
+│   ├── stream/
+│   │   └── logs.go              # WebSocket log streaming
+│   └── config/
+│       └── config.go            # Configuration loading
+├── migrations/
+│   ├── sqlite/                   # SQLite-specific migrations
+│   │   ├── 001_initial.up.sql
+│   │   └── 001_initial.down.sql
+│   ├── postgres/                 # PostgreSQL-specific migrations
+│   │   ├── 001_initial.up.sql
+│   │   └── 001_initial.down.sql
+│   └── mysql/                    # MariaDB-specific migrations
+│       ├── 001_initial.up.sql
+│       └── 001_initial.down.sql
+├── web/                          # Frontend SPA
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Canvas/           # React Flow canvas
+│   │   │   ├── Nodes/            # ServiceNode, DatabaseNode, VolumeNode
+│   │   │   └── Modals/           # Configuration modals
+│   │   ├── stores/               # Zustand stores
+│   │   └── api/                  # API client
+│   ├── package.json
+│   └── vite.config.ts
+├── go.mod
+├── go.sum
+├── Makefile
+├── Dockerfile
+├── docker-compose.yml            # Local development
+├── .env.example
+└── README.md
+
+11.1 Infrastructure Client (internal/infra)
+The infra package provides a typed HTTP client for the INTELIFOX OpenStack Service. All requests include the OpenStack tenant ID from the project mapping:
+
+// internal/infra/client.go
+type Client struct {
+    baseURL    string
+    httpClient *http.Client
+    apiKey     string
+}
+
+func NewClient(baseURL, apiKey string) *Client {
+    return &Client{
+        baseURL:    baseURL,
+        httpClient: &http.Client{Timeout: 30 * time.Second},
+        apiKey:     apiKey,
+    }
+}
+
+// All requests include tenant context via header
+func (c *Client) doRequest(ctx context.Context, method, path string, tenantID string, body any) (*http.Response, error) {
+    req, _ := http.NewRequestWithContext(ctx, method, c.baseURL+path, toJSON(body))
+    req.Header.Set("Authorization", "Bearer "+c.apiKey)
+    req.Header.Set("X-Tenant-ID", tenantID)  // OpenStack project/tenant
+    req.Header.Set("Content-Type", "application/json")
+    return c.httpClient.Do(req)
+}
+
+// internal/infra/instances.go
+type CreateInstanceRequest struct {
+    TenantID   string `json:"-"`              // Not in JSON, used as header
+    Name       string `json:"name"`
+    FlavorID   string `json:"flavor_id"`
+    ImageID    string `json:"image_id"`
+    NetworkID  string `json:"network_id"`
+    UserData   string `json:"user_data,omitempty"`
+}
+
+type Instance struct {
+    ID        string `json:"id"`
+    Name      string `json:"name"`
+    Status    string `json:"status"`
+    PrivateIP string `json:"private_ip"`
+}
+
+func (c *Client) CreateInstance(ctx context.Context, req CreateInstanceRequest) (*Instance, error) {
+    resp, err := c.doRequest(ctx, "POST", "/api/instances", req.TenantID, req)
+    // ...
+}
+
+// Usage in workers:
+// project := store.GetProject(ctx, projectID)
+// instance, err := infraClient.CreateInstance(ctx, infra.CreateInstanceRequest{
+//     TenantID:  project.OpenStackTenantID,  // From projects table
+//     Name:      serviceName,
+//     FlavorID:  flavorID,
+//     ...
+// })
+
+12. Development Plan
+12.1 Phase Overview
+Phase
+Duration
+Deliverables
+1. Foundation
+2 weeks
+API server, database schema, basic CRUD
+2. Git Integration
+1 week
+OAuth, repository listing, webhooks
+3. Build Pipeline
+2 weeks
+Railpack integration, image builds
+4. OpenStack Deploy
+2 weeks
+Compute, LB, networking
+5. Databases & Volumes
+1 week
+Trove/Cinder integration
+6. UI & Streaming
+2 weeks
+Canvas UI, real-time logs
+7. Polish
+2 weeks
+Rollbacks, error handling, testing
+
+12.2 Phase 1: Foundation (Weeks 1-2)
+	•	Initialize Go module with dependencies
+	•	Set up Chi router with middleware (auth, logging, CORS)
+	•	Configure pgx connection pool
+	•	Create all database migrations
+	•	Implement CRUD endpoints for Projects, Services
+	•	Set up basic error handling and validation
+	•	Create Docker development environment
+Milestone: API running, can create/list projects via API
+
+12.3 Phase 2: Git Integration (Week 3)
+	•	Implement GitHub OAuth flow
+	•	Implement GitLab OAuth flow
+	•	Create repository listing endpoint
+	•	Implement branch and directory tree endpoints
+	•	Set up webhook registration on repository selection
+	•	Implement webhook signature validation
+	•	Create git clone functionality
+Milestone: Users can connect GitHub, select repos, webhooks registered
+
+12.4 Phase 3: Build Pipeline (Weeks 4-5)
+	•	Set up BuildKit daemon infrastructure
+	•	Implement Railpack build wrapper
+	•	Create container registry integration (Harbor)
+	•	Implement job queue worker for build jobs
+	•	Create deployment log streaming to database
+	•	Handle Dockerfile fallback
+	•	Implement build cancellation
+Milestone: Push to GitHub triggers image build and push to registry
+
+12.5 Phase 4: Infrastructure Integration (Weeks 6-7)
+Implement HTTP client for INTELIFOX OpenStack Service:
+Task
+HTTP Endpoint
+Details
+Instance provisioning
+POST /api/instances
+Create VMs with container image
+Floating IP allocation
+POST /api/floating-ips
+Reserve and attach public IPs
+Security groups
+POST /api/security-groups
+Create per-service firewall rules
+DNS configuration
+POST /api/dns/records
+Create/update A records
+Volume management
+POST /api/volumes
+Create and attach volumes
+Instance lifecycle
+DELETE /api/instances/:id
+Start, stop, terminate instances
+Milestone: Built images deployed via INTELIFOX service, accessible via floating IP
+
+12.6 Phase 5: Databases & Volumes (Week 8)
+	•	Implement Trove database provisioning (or Nova + Docker)
+	•	Create credential generation and encryption
+	•	Implement automatic DATABASE_URL injection
+	•	Create Cinder volume provisioning
+	•	Implement volume attach/detach operations
+	•	Add backup trigger functionality
+Milestone: Users can provision managed databases, attach volumes
+
+12.7 Phase 6: UI & Streaming (Weeks 9-10)
+	•	Create React/Vue project with canvas library
+	•	Implement project list and creation
+	•	Build canvas view with draggable nodes
+	•	Create configuration modals for all resource types
+	•	Implement WebSocket connection for log streaming
+	•	Add real-time deployment progress UI
+	•	Create metrics visualization components
+Milestone: Full no-code interface working end-to-end
+
+12.8 Phase 7: Polish (Weeks 11-12)
+	•	Implement deployment rollback functionality
+	•	Add manual redeploy trigger
+	•	Create resource cleanup on delete
+	•	Improve error messages and user feedback
+	•	Add retry logic for failed operations
+	•	Write integration tests
+	•	Performance optimization
+	•	Security audit and hardening
+Milestone: Production-ready MVP
+
+13. Configuration
+13.1 Environment Variables
+Variable
+Required
+Description
+DATABASE_URL
+Yes
+Database connection string (SQLite/PostgreSQL/MariaDB)
+PORT
+No
+HTTP server port (default: 8080)
+BASE_DOMAIN
+Yes
+Base domain for services (projects.armonika.cloud)
+INTERNAL_DOMAIN
+Yes
+Internal domain for databases (internal.armonika.cloud)
+CADDY_ADMIN_URL
+Yes
+Caddy Admin API URL (http://localhost:2019)
+CASDOOR_ENDPOINT
+Yes
+Casdoor server URL
+CASDOOR_CLIENT_ID
+Yes
+Casdoor application client ID
+CASDOOR_CLIENT_SECRET
+Yes
+Casdoor application client secret
+CASDOOR_ORG_NAME
+Yes
+Casdoor organization name
+GITHUB_CLIENT_ID
+Yes
+GitHub OAuth app client ID
+GITHUB_CLIENT_SECRET
+Yes
+GitHub OAuth app client secret
+GITLAB_CLIENT_ID
+No
+GitLab OAuth app client ID
+GITLAB_CLIENT_SECRET
+No
+GitLab OAuth app client secret
+BUILDKIT_HOST
+Yes
+BuildKit daemon address
+REGISTRY_URL
+Yes
+Container registry URL
+REGISTRY_USERNAME
+Yes
+Registry authentication username
+REGISTRY_PASSWORD
+Yes
+Registry authentication password
+INFRA_SERVICE_URL
+Yes
+INTELIFOX OpenStack Service base URL
+INFRA_SERVICE_API_KEY
+Yes
+API key for INTELIFOX OpenStack Service
+ENCRYPTION_KEY
+Yes
+32-byte key for encrypting secrets
+WEBHOOK_SECRET
+Yes
+Secret for signing webhooks
+WORKER_COUNT
+No
+Number of worker goroutines (default: 4)
+
+13.2 Instance Sizes
+Size
+vCPU
+RAM
+OpenStack Flavor
+small
+1
+512 MB
+c1.small
+medium
+2
+2 GB
+c1.medium
+large
+4
+4 GB
+c1.large
+xlarge
+8
+8 GB
+c1.xlarge
+
+13.3 Database Sizes
+Size
+vCPU
+RAM
+Storage
+small
+1
+1 GB
+10 GB
+medium
+2
+2 GB
+25 GB
+large
+4
+4 GB
+50 GB
+xlarge
+8
+8 GB
+100 GB
+
+13.4 Local Development Setup
+Click to Deploy can run locally with SQLite and a mock infrastructure client for testing without OpenStack:
+
+# Clone and setup
+git clone github.com/intelifox/click-deploy
+cd click-deploy
+
+# Start dependencies (BuildKit, Registry)
+docker-compose up -d
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your GitHub OAuth credentials
+
+# Run with SQLite (development)
+DATABASE_URL=sqlite:///tmp/clickdeploy.db go run cmd/server/main.go
+
+# Run frontend
+cd web && npm install && npm run dev
+
+13.4.1 Docker Compose (Local Dependencies)
+# docker-compose.yml
+version: '3.8'
+services:
+  buildkit:
+    image: moby/buildkit:latest
+    privileged: true
+    ports:
+      - "1234:1234"
+    command: --addr tcp://0.0.0.0:1234
+
+  registry:
+    image: registry:2
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry_data:/var/lib/registry
+
+volumes:
+  registry_data:
+
+13.4.2 Mock Infrastructure Mode
+For local development without the INTELIFOX OpenStack Service, use mock mode:
+# .env
+INFRA_MOCK=true  # Uses mock client instead of HTTP calls
+
+# Mock client simulates:
+# - Instance creation (returns fake IDs)
+# - Floating IP allocation (returns 127.0.0.1)
+# - Volume creation
+# - DNS records (no-op)
+
+# This allows full UI/API testing without infrastructure
+
+14. Security Considerations
+14.1 Authentication & Authorization
+	•	All API endpoints require valid Bearer token from parent platform
+	•	OAuth tokens encrypted at rest using AES-256-GCM
+	•	Webhook signatures validated using HMAC-SHA256
+	•	Database credentials encrypted before storage
+	•	Environment variable secrets never logged or exposed in API responses
+
+14.2 Network Security
+	•	All external communication over TLS 1.3
+	•	OpenStack security groups configured per-service
+	•	Database instances not exposed publicly
+	•	Load balancers terminate TLS
+	•	Internal service-to-service communication isolated
+
+14.3 Container Security
+	•	Images scanned by Harbor for vulnerabilities
+	•	Non-root container execution enforced
+	•	Read-only root filesystem where possible
+	•	Resource limits enforced (CPU, memory)
+	•	No privileged containers for user workloads
+
+14.4 Data Protection
+	•	All secrets encrypted using AES-256-GCM with per-tenant keys
+	•	Database backups encrypted at rest
+	•	Audit logging for all sensitive operations
+	•	PII handling compliant with applicable regulations
+	•	Data residency within configured OpenStack region
+
+15. Appendix
+15.1 API Request/Response Examples
+Create Project
+POST /v1/click-deploy/projects
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "name": "my-saas-app",
+  "region": "algiers-dc1"
+}
+
+Response:
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-saas-app",
+  "region": "algiers-dc1",
+  "created_at": "2026-01-15T10:30:00Z",
+  "services": []
+}
+
+Create Service
+POST /v1/click-deploy/projects/{projectId}/services
+Content-Type: application/json
+
+{
+  "name": "backend",
+  "type": "app",
+  "git_source": {
+    "provider": "github",
+    "repo_owner": "myorg",
+    "repo_name": "my-backend",
+    "branch": "main",
+    "root_dir": "/backend"
+  },
+  "instance_size": "medium",
+  "instance_count": 1,
+  "port": 8080,
+  "auto_deploy": true
+}
+
+Deployment Webhook (GitHub)
+POST /v1/click-deploy/webhooks/github
+X-Hub-Signature-256: sha256=...
+X-GitHub-Event: push
+
+{
+  "ref": "refs/heads/main",
+  "after": "a1b2c3d4e5f6...",
+  "repository": {
+    "full_name": "myorg/my-backend"
+  },
+  "head_commit": {
+    "message": "fix: resolve auth bug",
+    "author": { "name": "John Doe" }
+  }
+}
+
+15.2 Glossary
+Term
+Definition
+BuildKit
+Container image builder, used by Docker and Railpack
+Canvas
+Visual workspace for arranging infrastructure nodes
+Cinder
+OpenStack block storage service
+Gophercloud
+Official Go SDK for OpenStack
+Harbor
+Enterprise container registry with security scanning
+Node
+Visual representation of a resource on the canvas
+Nova
+OpenStack compute service
+Octavia
+OpenStack load balancer service
+PaaS
+Platform as a Service
+Railpack
+Zero-config container build tool by Railway
+Trove
+OpenStack database as a service
+Zun
+OpenStack container service
+
+15.3 References
+	•	OpenStack API Documentation: https://docs.openstack.org/api-quick-start/
+	•	Gophercloud Documentation: https://github.com/gophercloud/gophercloud
+	•	Railpack Documentation: https://railpack.com/
+	•	BuildKit Documentation: https://github.com/moby/buildkit
+	•	Chi Router: https://github.com/go-chi/chi
+	•	React Flow (Canvas): https://reactflow.dev/
+
+— End of Document —

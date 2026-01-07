@@ -1,0 +1,63 @@
+# Binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server
+click-deploy
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.coverprofile
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+/tmp/click-deploy-builds
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend
+web/node_modules/
+web/.next/
+web/dist/
+web/build/
+web/.turbo/
+
+# Build artifacts
+dist/
+build/
