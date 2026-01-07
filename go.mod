@@ -1,6 +1,6 @@
 module github.com/intelifox/click-deploy
 
-go 1.24.4
+go 1.22
 
 require (
 	github.com/docker/cli v29.1.3+incompatible
