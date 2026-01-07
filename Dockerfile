@@ -11,8 +11,10 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy source code (explicitly copy cmd directory first to ensure it's included)
+COPY cmd ./cmd
+COPY internal ./internal
+COPY migrations ./migrations
 
 # Verify source code is copied
 RUN ls -la /build/cmd/server/ || (echo "cmd/server not found, listing /build:" && ls -la /build/)
