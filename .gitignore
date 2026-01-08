@@ -5,6 +5,8 @@
 *.dll
 *.so
 *.dylib
+/server
+/click-deploy
 server
 click-deploy
 
