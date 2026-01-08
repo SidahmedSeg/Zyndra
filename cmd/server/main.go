@@ -46,8 +46,9 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
-	r.Use(api.SecurityHeadersMiddleware) // Security headers
-	r.Use(api.CompressionMiddleware)     // Enable response compression
+	r.Use(api.CORSMiddlewareFromEnv(cfg.CORSOrigins)) // CORS support
+	r.Use(api.SecurityHeadersMiddleware)               // Security headers
+	r.Use(api.CompressionMiddleware)                   // Enable response compression
 
 	// Health check (no auth required, but rate limited)
 	r.Group(func(r chi.Router) {

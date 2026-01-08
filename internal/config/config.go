@@ -70,6 +70,9 @@ type Config struct {
 	CentrifugoAPIURL           string `envconfig:"CENTRIFUGO_API_URL"`             // e.g. http://centrifugo:8000/api
 	CentrifugoAPIKey           string `envconfig:"CENTRIFUGO_API_KEY"`             // HTTP API key
 	CentrifugoTokenHMACSecret  string `envconfig:"CENTRIFUGO_TOKEN_HMAC_SECRET"`   // JWT HMAC secret
+
+	// CORS
+	CORSOrigins string `envconfig:"CORS_ORIGINS" default:"*"` // Comma-separated list of allowed origins
 }
 
 func Load() (*Config, error) {
