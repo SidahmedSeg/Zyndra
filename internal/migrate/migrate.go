@@ -2,18 +2,13 @@ package migrate
 
 import (
 	"database/sql"
-	"embed"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
-
-//go:embed ../../migrations
-var migrationsFS embed.FS
 
 // RunMigrations runs all migration files in the specified directory
 func RunMigrations(db *sql.DB, migrationsDir string) error {
@@ -23,42 +18,32 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	log.Printf("=== Starting migrations ===")
 	log.Printf("Detected database type: %s", dbType)
 	
-	// Try to get migration files - first from embed, then from filesystem
-	var files []fs.DirEntry
+	// Read migration files from filesystem
+	var files []os.DirEntry
 	var migrationPath string
-	var useEmbed bool
 	var err error
 	
-	// Try embedded filesystem first
-	embedPath := fmt.Sprintf("migrations/%s", dbType)
-	log.Printf("Trying embedded filesystem path: %s", embedPath)
-	files, err = migrationsFS.ReadDir(embedPath)
-	if err != nil {
-		log.Printf("Embedded filesystem failed: %v", err)
-		log.Printf("Falling back to filesystem...")
-		
-		// Fallback to filesystem (for Docker where migrations are copied)
-		fsPath := filepath.Join("/app", "migrations", dbType)
+	// Try filesystem paths (Docker uses /app/migrations, local dev uses ./migrations)
+	fsPaths := []string{
+		filepath.Join("/app", "migrations", dbType), // Docker path
+		filepath.Join("migrations", dbType),        // Local dev path
+		filepath.Join(migrationsDir, dbType),       // Explicit migrationsDir parameter
+	}
+	
+	for _, fsPath := range fsPaths {
 		log.Printf("Trying filesystem path: %s", fsPath)
 		files, err = os.ReadDir(fsPath)
-		if err != nil {
-			// Try relative path
-			fsPath = filepath.Join("migrations", dbType)
-			log.Printf("Trying relative filesystem path: %s", fsPath)
-			files, err = os.ReadDir(fsPath)
+		if err == nil {
+			migrationPath = fsPath
+			log.Printf("✓ Using filesystem migrations from: %s", migrationPath)
+			break
 		}
-		if err != nil {
-			log.Printf("❌ Both embedded and filesystem failed")
-			log.Printf("Embed error: %v", err)
-			return fmt.Errorf("failed to read migrations from both embed and filesystem: %w", err)
-		}
-		migrationPath = fsPath
-		useEmbed = false
-		log.Printf("✓ Using filesystem migrations from: %s", migrationPath)
-	} else {
-		migrationPath = embedPath
-		useEmbed = true
-		log.Printf("✓ Using embedded migrations from: %s", migrationPath)
+		log.Printf("  Failed: %v", err)
+	}
+	
+	if err != nil {
+		log.Printf("❌ Failed to find migrations in any location")
+		return fmt.Errorf("failed to read migrations from filesystem: %w", err)
 	}
 	
 	// Filter and sort migration files
@@ -99,22 +84,11 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 			continue
 		}
 		
-		// Read migration file
+		// Read migration file from filesystem
 		migrationFilePath := filepath.Join(migrationPath, filename)
-		var sqlBytes []byte
-		
-		if useEmbed {
-			// Read from embedded filesystem
-			sqlBytes, err = migrationsFS.ReadFile(migrationFilePath)
-			if err != nil {
-				return fmt.Errorf("failed to read migration file %s from embed: %w", filename, err)
-			}
-		} else {
-			// Read from filesystem
-			sqlBytes, err = os.ReadFile(migrationFilePath)
-			if err != nil {
-				return fmt.Errorf("failed to read migration file %s from filesystem: %w", filename, err)
-			}
+		sqlBytes, err := os.ReadFile(migrationFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", filename, err)
 		}
 		
 		// Execute migration
