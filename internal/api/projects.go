@@ -218,7 +218,14 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteCreated(w, project)
+	// Fetch created project to return full details
+	createdProject, err := h.Store.GetProject(r.Context(), project.ID)
+	if err != nil {
+		WriteError(w, domain.ErrDatabase.WithError(err))
+		return
+	}
+
+	WriteCreated(w, toProjectResponse(createdProject))
 }
 
 // UpdateProject handles PATCH /projects/:id
