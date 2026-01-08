@@ -23,23 +23,42 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	log.Printf("=== Starting migrations ===")
 	log.Printf("Detected database type: %s", dbType)
 	
-	// Get migration files from embedded filesystem
-	migrationPath := fmt.Sprintf("migrations/%s", dbType)
-	log.Printf("Looking for migrations in: %s", migrationPath)
+	// Try to get migration files - first from embed, then from filesystem
+	var files []fs.DirEntry
+	var migrationPath string
+	var useEmbed bool
+	var err error
 	
-	// Read all migration files
-	files, err := migrationsFS.ReadDir(migrationPath)
+	// Try embedded filesystem first
+	embedPath := fmt.Sprintf("migrations/%s", dbType)
+	log.Printf("Trying embedded filesystem path: %s", embedPath)
+	files, err = migrationsFS.ReadDir(embedPath)
 	if err != nil {
-		log.Printf("ERROR: Failed to read migrations directory %s: %v", migrationPath, err)
-		// Try to list what's available
-		entries, listErr := migrationsFS.ReadDir("migrations")
-		if listErr == nil {
-			log.Printf("Available migration directories:")
-			for _, entry := range entries {
-				log.Printf("  - %s", entry.Name())
-			}
+		log.Printf("Embedded filesystem failed: %v", err)
+		log.Printf("Falling back to filesystem...")
+		
+		// Fallback to filesystem (for Docker where migrations are copied)
+		fsPath := filepath.Join("/app", "migrations", dbType)
+		log.Printf("Trying filesystem path: %s", fsPath)
+		files, err = os.ReadDir(fsPath)
+		if err != nil {
+			// Try relative path
+			fsPath = filepath.Join("migrations", dbType)
+			log.Printf("Trying relative filesystem path: %s", fsPath)
+			files, err = os.ReadDir(fsPath)
 		}
-		return fmt.Errorf("failed to read migrations directory: %w", err)
+		if err != nil {
+			log.Printf("❌ Both embedded and filesystem failed")
+			log.Printf("Embed error: %v", err)
+			return fmt.Errorf("failed to read migrations from both embed and filesystem: %w", err)
+		}
+		migrationPath = fsPath
+		useEmbed = false
+		log.Printf("✓ Using filesystem migrations from: %s", migrationPath)
+	} else {
+		migrationPath = embedPath
+		useEmbed = true
+		log.Printf("✓ Using embedded migrations from: %s", migrationPath)
 	}
 	
 	// Filter and sort migration files
@@ -53,6 +72,9 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	sort.Strings(migrationFiles)
 	
 	log.Printf("Found %d migration files", len(migrationFiles))
+	if len(migrationFiles) == 0 {
+		return fmt.Errorf("no migration files found in %s", migrationPath)
+	}
 	
 	// Create migrations table if it doesn't exist
 	log.Printf("Creating schema_migrations table if it doesn't exist...")
@@ -77,17 +99,28 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 			continue
 		}
 		
-		// Read migration file from embedded filesystem
+		// Read migration file
 		migrationFilePath := filepath.Join(migrationPath, filename)
-		sql, err := migrationsFS.ReadFile(migrationFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to read migration file %s: %w", filename, err)
+		var sqlBytes []byte
+		
+		if useEmbed {
+			// Read from embedded filesystem
+			sqlBytes, err = migrationsFS.ReadFile(migrationFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to read migration file %s from embed: %w", filename, err)
+			}
+		} else {
+			// Read from filesystem
+			sqlBytes, err = os.ReadFile(migrationFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to read migration file %s from filesystem: %w", filename, err)
+			}
 		}
 		
 		// Execute migration
 		log.Printf("Running migration: %s (file: %s)", migrationName, filename)
-		log.Printf("Migration SQL size: %d bytes", len(sql))
-		if err := runMigration(db, string(sql)); err != nil {
+		log.Printf("Migration SQL size: %d bytes", len(sqlBytes))
+		if err := runMigration(db, string(sqlBytes)); err != nil {
 			log.Printf("ERROR: Failed to run migration %s: %v", migrationName, err)
 			return fmt.Errorf("failed to run migration %s: %w", migrationName, err)
 		}
@@ -107,28 +140,50 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 }
 
 func detectDatabaseType(db *sql.DB) string {
+	log.Printf("Detecting database type...")
+	
 	// Try PostgreSQL
 	var version string
 	err := db.QueryRow("SELECT version()").Scan(&version)
-	if err == nil && strings.Contains(strings.ToLower(version), "postgresql") {
-		return "postgres"
+	if err == nil {
+		log.Printf("PostgreSQL version query succeeded: %s", version[:min(50, len(version))])
+		if strings.Contains(strings.ToLower(version), "postgresql") {
+			log.Printf("Detected: PostgreSQL")
+			return "postgres"
+		}
+	} else {
+		log.Printf("PostgreSQL detection failed: %v", err)
 	}
 	
 	// Try SQLite
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM sqlite_master").Scan(&count)
 	if err == nil {
+		log.Printf("Detected: SQLite")
 		return "sqlite"
+	} else {
+		log.Printf("SQLite detection failed: %v", err)
 	}
 	
 	// Try MySQL/MariaDB
 	err = db.QueryRow("SELECT VERSION()").Scan(&version)
 	if err == nil {
+		log.Printf("Detected: MySQL/MariaDB")
 		return "mysql"
+	} else {
+		log.Printf("MySQL detection failed: %v", err)
 	}
 	
 	// Default to postgres
+	log.Printf("Defaulting to: PostgreSQL")
 	return "postgres"
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func createMigrationsTable(db *sql.DB) error {
@@ -216,11 +271,3 @@ func runMigration(db *sql.DB, sql string) error {
 	log.Printf("Migration SQL executed successfully")
 	return nil
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
