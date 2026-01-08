@@ -88,15 +88,19 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	projects, err := h.Store.ListProjectsByOrg(r.Context(), orgID)
 	if err != nil {
 		// Log the error for debugging
-		fmt.Printf("Error listing projects for org %s: %v\n", orgID, err)
+		log.Printf("Error listing projects for org %s: %v", orgID, err)
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
 
 	// Convert store.Project to ProjectResponse
-	response := make([]ProjectResponse, 0, len(projects))
-	for _, p := range projects {
-		response = append(response, toProjectResponse(p))
+	response := make([]ProjectResponse, 0)
+	if projects != nil {
+		for _, p := range projects {
+			if p != nil {
+				response = append(response, toProjectResponse(p))
+			}
+		}
 	}
 
 	WriteJSON(w, http.StatusOK, response)

@@ -97,11 +97,11 @@ func (db *DB) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
 }
 
 func (db *DB) ListProjectsByOrg(ctx context.Context, orgID string) ([]*Project, error) {
-	query := `SELECT * FROM projects WHERE casdoor_org_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, casdoor_org_id, name, slug, description, openstack_tenant_id, openstack_network_id, default_region, auto_deploy, created_by, created_at, updated_at FROM projects WHERE casdoor_org_id = $1 ORDER BY created_at DESC`
 
 	rows, err := db.QueryContext(ctx, query, orgID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query projects: %w", err)
 	}
 	defer rows.Close()
 
@@ -115,12 +115,16 @@ func (db *DB) ListProjectsByOrg(ctx context.Context, orgID string) ([]*Project, 
 			&p.CreatedAt, &p.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan project row: %w", err)
 		}
 		projects = append(projects, &p)
 	}
 
-	return projects, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating project rows: %w", err)
+	}
+
+	return projects, nil
 }
 
 // UpdateProject updates an existing project
