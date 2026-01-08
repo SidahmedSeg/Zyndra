@@ -33,13 +33,13 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       PORT: 8080
-      BASE_URL: ${BASE_URL}
+      BASE_URL: ${BASE_URL:-https://api.zyndra.armonika.cloud}
       DISABLE_AUTH: ${DISABLE_AUTH:-true}
-      REGISTRY_URL: ${REGISTRY_URL}
-      REGISTRY_USERNAME: ${REGISTRY_USERNAME}
-      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD}
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      REGISTRY_URL: ${REGISTRY_URL:-https://registry.example.com}
+      REGISTRY_USERNAME: ${REGISTRY_USERNAME:-user}
+      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-password}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-ed7f219ca3afd5838ab10186dec58a9cc65ce34277ed47ca1364138910bc1bd1}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://zyndra.armonika.cloud}
       USE_MOCK_INFRA: ${USE_MOCK_INFRA:-true}
     ports:
       - "127.0.0.1:8080:8080"  # Only accessible from localhost/Caddy
