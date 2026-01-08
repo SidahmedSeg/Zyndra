@@ -35,9 +35,17 @@ COPY --from=builder /app/package.json ./
 RUN mkdir -p ./public
 COPY --from=builder /app/public ./public
 
-# Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Create non-root user (use existing if GID 1000 is taken)
+RUN if ! getent group 1000 > /dev/null 2>&1; then \
+        addgroup -g 1000 appuser; \
+    else \
+        addgroup -S appuser || true; \
+    fi && \
+    if ! getent passwd 1000 > /dev/null 2>&1; then \
+        adduser -D -u 1000 -G appuser appuser; \
+    else \
+        adduser -D -S -G appuser appuser || true; \
+    fi
 
 # Change ownership
 RUN chown -R appuser:appuser /app
