@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-//go:embed all:../../migrations
+//go:embed ../../migrations
 var migrationsFS embed.FS
 
 // RunMigrations runs all migration files in the specified directory
