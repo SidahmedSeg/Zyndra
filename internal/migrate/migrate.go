@@ -18,14 +18,25 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	// Detect database type from connection string or by testing
 	dbType := detectDatabaseType(db)
 	
+	log.Printf("=== Starting migrations ===")
 	log.Printf("Detected database type: %s", dbType)
 	
 	// Get migration files from embedded filesystem
 	migrationPath := fmt.Sprintf("migrations/%s", dbType)
+	log.Printf("Looking for migrations in: %s", migrationPath)
 	
 	// Read all migration files
 	files, err := migrationsFS.ReadDir(migrationPath)
 	if err != nil {
+		log.Printf("ERROR: Failed to read migrations directory %s: %v", migrationPath, err)
+		// Try to list what's available
+		entries, listErr := migrationsFS.ReadDir("migrations")
+		if listErr == nil {
+			log.Printf("Available migration directories:")
+			for _, entry := range entries {
+				log.Printf("  - %s", entry.Name())
+			}
+		}
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 	
@@ -42,9 +53,12 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	log.Printf("Found %d migration files", len(migrationFiles))
 	
 	// Create migrations table if it doesn't exist
+	log.Printf("Creating schema_migrations table if it doesn't exist...")
 	if err := createMigrationsTable(db); err != nil {
+		log.Printf("ERROR: Failed to create migrations table: %v", err)
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
+	log.Printf("Schema_migrations table ready")
 	
 	// Run each migration
 	for _, filename := range migrationFiles {
@@ -69,17 +83,21 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		}
 		
 		// Execute migration
-		log.Printf("Running migration: %s", migrationName)
+		log.Printf("Running migration: %s (file: %s)", migrationName, filename)
+		log.Printf("Migration SQL size: %d bytes", len(sql))
 		if err := runMigration(db, string(sql)); err != nil {
+			log.Printf("ERROR: Failed to run migration %s: %v", migrationName, err)
 			return fmt.Errorf("failed to run migration %s: %w", migrationName, err)
 		}
 		
 		// Record migration
+		log.Printf("Recording migration %s in schema_migrations...", migrationName)
 		if err := recordMigration(db, migrationName); err != nil {
+			log.Printf("ERROR: Failed to record migration %s: %v", migrationName, err)
 			return fmt.Errorf("failed to record migration %s: %w", migrationName, err)
 		}
 		
-		log.Printf("Migration %s completed successfully", migrationName)
+		log.Printf("✓ Migration %s completed successfully", migrationName)
 	}
 	
 	log.Println("All migrations completed successfully")
@@ -163,20 +181,44 @@ func recordMigration(db *sql.DB, version string) error {
 }
 
 func runMigration(db *sql.DB, sql string) error {
-	// Split by semicolon and execute each statement
-	statements := strings.Split(sql, ";")
+	// For PostgreSQL, we can execute the entire SQL as one transaction
+	// This is better than splitting by semicolon which can break on functions/procedures
 	
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
+	// Remove comments and empty lines for cleaner execution
+	lines := strings.Split(sql, "\n")
+	var cleanSQL strings.Builder
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Skip empty lines and single-line comments
+		if trimmed == "" || strings.HasPrefix(trimmed, "--") {
 			continue
 		}
-		
-		if _, err := db.Exec(stmt); err != nil {
-			return fmt.Errorf("failed to execute statement: %w\nStatement: %s", err, stmt)
-		}
+		cleanSQL.WriteString(line)
+		cleanSQL.WriteString("\n")
 	}
 	
+	finalSQL := cleanSQL.String()
+	if strings.TrimSpace(finalSQL) == "" {
+		log.Printf("Warning: Migration SQL is empty after cleaning")
+		return nil
+	}
+	
+	// Execute the migration
+	log.Printf("Executing migration SQL (%d characters)...", len(finalSQL))
+	if _, err := db.Exec(finalSQL); err != nil {
+		log.Printf("ERROR: SQL execution failed: %v", err)
+		log.Printf("First 500 chars of SQL: %s", finalSQL[:min(500, len(finalSQL))])
+		return fmt.Errorf("failed to execute migration: %w", err)
+	}
+	
+	log.Printf("Migration SQL executed successfully")
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
