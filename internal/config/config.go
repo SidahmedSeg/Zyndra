@@ -12,10 +12,10 @@ type Config struct {
 	// Database
 	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
 
-	// Casdoor
-	CasdoorEndpoint     string `envconfig:"CASDOOR_ENDPOINT" required:"true"`
-	CasdoorClientID     string `envconfig:"CASDOOR_CLIENT_ID" required:"true"`
-	CasdoorClientSecret string `envconfig:"CASDOOR_CLIENT_SECRET" required:"true"`
+	// Casdoor (optional if DISABLE_AUTH=true)
+	CasdoorEndpoint     string `envconfig:"CASDOOR_ENDPOINT"`
+	CasdoorClientID     string `envconfig:"CASDOOR_CLIENT_ID"`
+	CasdoorClientSecret string `envconfig:"CASDOOR_CLIENT_SECRET"`
 
 	// OpenStack
 	InfraServiceURL    string `envconfig:"INFRA_SERVICE_URL"`
