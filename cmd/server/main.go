@@ -49,6 +49,21 @@ func main() {
 	r.Use(api.CORSMiddlewareFromEnv(cfg.CORSOrigins)) // CORS support
 	r.Use(api.SecurityHeadersMiddleware)               // Security headers
 	r.Use(api.CompressionMiddleware)                   // Enable response compression
+	
+	// Add panic recovery with detailed logging
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("Panic recovered: %v\n", err)
+					// Log stack trace
+					debug.PrintStack()
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// Health check (no auth required, but rate limited)
 	r.Group(func(r chi.Router) {
