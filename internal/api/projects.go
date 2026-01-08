@@ -30,6 +30,53 @@ func NewProjectHandler(store *store.DB, cfg *config.Config) *ProjectHandler {
 	}
 }
 
+// ProjectResponse represents a project in API responses
+type ProjectResponse struct {
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Slug              string  `json:"slug"`
+	Description       *string `json:"description,omitempty"`
+	CasdoorOrgID      string  `json:"casdoor_org_id"`
+	OpenStackTenantID *string `json:"openstack_tenant_id,omitempty"`
+	OpenStackNetworkID *string `json:"openstack_network_id,omitempty"`
+	DefaultRegion     *string `json:"default_region,omitempty"`
+	AutoDeploy        bool    `json:"auto_deploy"`
+	CreatedBy         *string `json:"created_by,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+	UpdatedAt         string  `json:"updated_at"`
+}
+
+// toProjectResponse converts a store.Project to ProjectResponse
+func toProjectResponse(p *store.Project) ProjectResponse {
+	resp := ProjectResponse{
+		ID:           p.ID.String(),
+		Name:         p.Name,
+		Slug:         p.Slug,
+		CasdoorOrgID: p.CasdoorOrgID,
+		AutoDeploy:   p.AutoDeploy,
+		CreatedAt:    p.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    p.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	if p.Description.Valid {
+		resp.Description = &p.Description.String
+	}
+	if p.OpenStackTenantID != "" {
+		resp.OpenStackTenantID = &p.OpenStackTenantID
+	}
+	if p.OpenStackNetworkID.Valid {
+		resp.OpenStackNetworkID = &p.OpenStackNetworkID.String
+	}
+	if p.DefaultRegion.Valid {
+		resp.DefaultRegion = &p.DefaultRegion.String
+	}
+	if p.CreatedBy.Valid {
+		resp.CreatedBy = &p.CreatedBy.String
+	}
+
+	return resp
+}
+
 func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	// Get org_id from context (set by auth middleware)
 	orgID := auth.GetOrgID(r.Context())
@@ -40,11 +87,19 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 
 	projects, err := h.Store.ListProjectsByOrg(r.Context(), orgID)
 	if err != nil {
+		// Log the error for debugging
+		fmt.Printf("Error listing projects for org %s: %v\n", orgID, err)
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, projects)
+	// Convert store.Project to ProjectResponse
+	response := make([]ProjectResponse, 0, len(projects))
+	for _, p := range projects {
+		response = append(response, toProjectResponse(p))
+	}
+
+	WriteJSON(w, http.StatusOK, response)
 }
 
 func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +299,7 @@ func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, updatedProject)
+	WriteJSON(w, http.StatusOK, toProjectResponse(updatedProject))
 }
 
 // DeleteProject handles DELETE /projects/:id
