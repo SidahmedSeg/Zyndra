@@ -47,6 +47,10 @@ Thumbs.db
 *.log
 logs/
 
+# Exception: Include web/components/Logs (React component, not log files)
+!web/components/Logs/
+!web/components/Logs/**
+
 # Temporary files
 tmp/
 temp/
