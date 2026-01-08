@@ -43,13 +43,16 @@ func main() {
 	defer db.Close()
 
 	// Run migrations automatically
-	log.Println("Running database migrations...")
+	log.Println("=== STARTING DATABASE MIGRATIONS ===")
 	if err := migrate.RunMigrations(db.DB, "migrations"); err != nil {
-		log.Printf("Warning: Failed to run migrations: %v", err)
-		log.Println("Server will start but API endpoints may fail")
+		log.Printf("❌ CRITICAL: Failed to run migrations: %v", err)
+		log.Println("Server will start but API endpoints WILL FAIL")
+		log.Println("Please check the error above and fix the migration issue")
+		// Don't exit - let server start so we can see the error in logs
 	} else {
-		log.Println("Migrations completed successfully")
+		log.Println("✅ MIGRATIONS COMPLETED SUCCESSFULLY")
 	}
+	log.Println("=== MIGRATIONS FINISHED ===")
 
 	// Set up router
 	r := chi.NewRouter()
