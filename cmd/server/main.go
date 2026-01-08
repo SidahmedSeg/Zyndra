@@ -16,6 +16,7 @@ import (
 	"github.com/intelifox/click-deploy/internal/api"
 	"github.com/intelifox/click-deploy/internal/auth"
 	"github.com/intelifox/click-deploy/internal/config"
+	"github.com/intelifox/click-deploy/internal/migrate"
 	"github.com/intelifox/click-deploy/internal/store"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -41,10 +42,13 @@ func main() {
 	}
 	defer db.Close()
 
-	// Check if database tables exist
-	if err := checkDatabaseTables(db.DB); err != nil {
-		log.Printf("Database check failed: %v", err)
-		log.Println("Server will start but API endpoints may fail until migrations are run")
+	// Run migrations automatically
+	log.Println("Running database migrations...")
+	if err := migrate.RunMigrations(db.DB, "migrations"); err != nil {
+		log.Printf("Warning: Failed to run migrations: %v", err)
+		log.Println("Server will start but API endpoints may fail")
+	} else {
+		log.Println("Migrations completed successfully")
 	}
 
 	// Set up router
