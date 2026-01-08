@@ -237,37 +237,101 @@ func recordMigration(db *sql.DB, version string) error {
 	return err
 }
 
-func runMigration(db *sql.DB, sql string) error {
-	// For PostgreSQL, we can execute the entire SQL as one transaction
-	// This is better than splitting by semicolon which can break on functions/procedures
+func runMigration(db *sql.DB, sqlContent string) error {
+	// For PostgreSQL, we need to handle statements carefully
+	// Some statements like CREATE EXTENSION can't be in a transaction
+	// We'll execute statements one by one, but try to be smart about it
 	
-	// Remove comments and empty lines for cleaner execution
+	log.Printf("Preparing to execute migration SQL (%d characters)...", len(sqlContent))
+	
+	// Split by semicolon, but be careful not to split inside strings or functions
+	statements := splitSQLStatements(sqlContent)
+	
+	log.Printf("Split into %d statements", len(statements))
+	
+	for i, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt == "" {
+			continue
+		}
+		
+		// Skip comments
+		if strings.HasPrefix(stmt, "--") {
+			continue
+		}
+		
+		log.Printf("Executing statement %d/%d (%d chars): %s...", 
+			i+1, len(statements), len(stmt), 
+			strings.ReplaceAll(stmt[:min(100, len(stmt))], "\n", " "))
+		
+		if _, err := db.Exec(stmt); err != nil {
+			log.Printf("ERROR: SQL execution failed on statement %d: %v", i+1, err)
+			log.Printf("Failed statement: %s", stmt[:min(500, len(stmt))])
+			return fmt.Errorf("failed to execute statement %d: %w\nStatement: %s", i+1, err, stmt[:min(200, len(stmt))])
+		}
+		
+		log.Printf("✓ Statement %d executed successfully", i+1)
+	}
+	
+	log.Printf("All statements executed successfully")
+	return nil
+}
+
+func splitSQLStatements(sql string) []string {
+	var statements []string
+	var current strings.Builder
+	inString := false
+	stringChar := byte(0)
+	
 	lines := strings.Split(sql, "\n")
-	var cleanSQL strings.Builder
+	
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Skip empty lines and single-line comments
+		
+		// Skip empty lines and comments
 		if trimmed == "" || strings.HasPrefix(trimmed, "--") {
 			continue
 		}
-		cleanSQL.WriteString(line)
-		cleanSQL.WriteString("\n")
+		
+		// Process line character by character
+		for i := 0; i < len(line); i++ {
+			char := line[i]
+			
+			// Track string literals
+			if (char == '\'' || char == '"') && (i == 0 || line[i-1] != '\\') {
+				if !inString {
+					inString = true
+					stringChar = char
+				} else if char == stringChar {
+					inString = false
+					stringChar = 0
+				}
+				current.WriteByte(char)
+				continue
+			}
+			
+			// If we find a semicolon outside a string, it's a statement separator
+			if char == ';' && !inString {
+				stmt := strings.TrimSpace(current.String())
+				if stmt != "" {
+					statements = append(statements, stmt)
+				}
+				current.Reset()
+				continue
+			}
+			
+			current.WriteByte(char)
+		}
+		
+		// Add newline for proper formatting
+		current.WriteByte('\n')
 	}
 	
-	finalSQL := cleanSQL.String()
-	if strings.TrimSpace(finalSQL) == "" {
-		log.Printf("Warning: Migration SQL is empty after cleaning")
-		return nil
+	// Add final statement if any
+	final := strings.TrimSpace(current.String())
+	if final != "" {
+		statements = append(statements, final)
 	}
 	
-	// Execute the migration
-	log.Printf("Executing migration SQL (%d characters)...", len(finalSQL))
-	if _, err := db.Exec(finalSQL); err != nil {
-		log.Printf("ERROR: SQL execution failed: %v", err)
-		log.Printf("First 500 chars of SQL: %s", finalSQL[:min(500, len(finalSQL))])
-		return fmt.Errorf("failed to execute migration: %w", err)
-	}
-	
-	log.Printf("Migration SQL executed successfully")
-	return nil
+	return statements
 }
