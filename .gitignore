@@ -67,3 +67,7 @@ web/.turbo/
 # Build artifacts
 dist/
 build/
+
+# Exception: Include internal/build package (source code, not build artifacts)
+!internal/build/
+!internal/build/**
