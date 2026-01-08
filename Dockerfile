@@ -14,21 +14,14 @@ RUN go mod download
 # Copy entire source tree
 COPY . .
 
-# Debug: List what was copied
-RUN echo "=== Contents of /build ===" && \
-    ls -la /build/ && \
-    echo "=== Contents of /build/cmd ===" && \
-    ls -la /build/cmd/ 2>&1 || echo "cmd directory not found" && \
-    echo "=== Contents of /build/cmd/server ===" && \
-    ls -la /build/cmd/server/ 2>&1 || echo "cmd/server directory not found" && \
-    echo "=== Checking for main.go ===" && \
-    find /build -name "main.go" -type f 2>&1 | head -5
+# Verify cmd directory exists before building
+RUN test -d /build/cmd/server || (echo "ERROR: cmd/server not found!" && ls -la /build/ && exit 1)
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -o /app/click-deploy \
-    ./cmd/server
+    /build/cmd/server
 
 # Final stage
 FROM alpine:latest
