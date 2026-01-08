@@ -1,6 +1,32 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+// Get API URL from environment variable (must be set at build time for Next.js)
+// For runtime configuration, we can also check window.location for same-origin
+const getApiBaseURL = (): string => {
+  // Check environment variable first (set at build time)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+  
+  // Fallback: if running in browser, try to infer from current origin
+  if (typeof window !== 'undefined') {
+    // If frontend is on zyndra.armonika.cloud, backend should be api.zyndra.armonika.cloud
+    const hostname = window.location.hostname
+    if (hostname === 'zyndra.armonika.cloud') {
+      return 'https://api.zyndra.armonika.cloud'
+    }
+    // For Railway preview URLs, try to construct backend URL
+    if (hostname.includes('.railway.app')) {
+      // This is a fallback - ideally NEXT_PUBLIC_API_URL should be set
+      console.warn('NEXT_PUBLIC_API_URL not set, using fallback. Please set it in Railway and rebuild.')
+    }
+  }
+  
+  // Default fallback
+  return 'http://localhost:8080'
+}
+
+const API_BASE_URL = getApiBaseURL()
 
 export interface ApiError {
   code: string
