@@ -17,7 +17,13 @@ export default function Home() {
       return
     }
     
-    fetchProjects()
+    // Only fetch projects if we have a token
+    fetchProjects().catch((error) => {
+      // If 401, redirect will happen in interceptor
+      if (error.status !== 401) {
+        console.error('Failed to fetch projects:', error)
+      }
+    })
   }, [fetchProjects, router])
 
   useEffect(() => {

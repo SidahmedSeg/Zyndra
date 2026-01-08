@@ -4,6 +4,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Click to Deploy',
   description: 'No-code deployment platform',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

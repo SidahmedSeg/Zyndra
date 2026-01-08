@@ -82,7 +82,12 @@ class ApiClient {
           if (error.response.status === 401) {
             this.clearToken()
             if (typeof window !== 'undefined') {
-              window.location.href = '/auth/login'
+              // Don't throw error if we're already on login page
+              if (!window.location.pathname.startsWith('/auth/login')) {
+                window.location.href = '/auth/login'
+                // Return a resolved promise to prevent error from propagating
+                return Promise.resolve({ data: null } as any)
+              }
             }
           }
           
