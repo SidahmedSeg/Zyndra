@@ -134,7 +134,7 @@ func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, project)
+	WriteJSON(w, http.StatusOK, toProjectResponse(project))
 }
 
 // CreateProject handles POST /projects
