@@ -3,14 +3,22 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjectsStore } from '@/stores/projectsStore'
+import { apiClient } from '@/lib/api/client'
 
 export default function Home() {
   const router = useRouter()
   const { projects, fetchProjects, selectedProject } = useProjectsStore()
 
   useEffect(() => {
+    // Check if user is authenticated
+    const token = apiClient.getToken()
+    if (!token) {
+      router.push('/auth/login')
+      return
+    }
+    
     fetchProjects()
-  }, [fetchProjects])
+  }, [fetchProjects, router])
 
   useEffect(() => {
     if (selectedProject) {

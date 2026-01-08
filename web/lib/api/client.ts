@@ -78,6 +78,14 @@ class ApiClient {
       (response) => response,
       (error: AxiosError<ApiError>) => {
         if (error.response) {
+          // Handle 401 Unauthorized - redirect to login
+          if (error.response.status === 401) {
+            this.clearToken()
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth/login'
+            }
+          }
+          
           const apiError = error.response.data
           throw new ApiClientError(
             apiError?.code || 'UNKNOWN_ERROR',
@@ -91,7 +99,7 @@ class ApiClient {
     )
   }
 
-  private getToken(): string | null {
+  getToken(): string | null {
     if (typeof window === 'undefined') return null
     return localStorage.getItem('auth_token')
   }

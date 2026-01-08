@@ -72,6 +72,9 @@ func main() {
 	r.Get("/git/callback/github", gitHandler.CallbackGitHub)
 	r.Get("/git/callback/gitlab", gitHandler.CallbackGitLab)
 
+	// Authentication routes (public)
+	api.RegisterAuthRoutes(r, cfg)
+
 	// Initialize auth validator
 	authValidator := auth.NewValidator(cfg.CasdoorEndpoint, cfg.CasdoorClientID)
 
