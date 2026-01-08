@@ -28,9 +28,12 @@ RUN bun install --frozen-lockfile --production
 
 # Copy built application from builder
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/package.json ./
+
+# Copy public directory (create empty if it doesn't exist in builder)
+RUN mkdir -p ./public
+COPY --from=builder /app/public* ./public/ 2>/dev/null || true
 
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
