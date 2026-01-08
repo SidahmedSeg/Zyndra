@@ -31,9 +31,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/package.json ./
 
-# Copy public directory (create empty if it doesn't exist in builder)
+# Create public directory and copy if it exists (Next.js may not create it)
 RUN mkdir -p ./public
-COPY --from=builder /app/public* ./public/ 2>/dev/null || true
+COPY --from=builder /app/public ./public
 
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
