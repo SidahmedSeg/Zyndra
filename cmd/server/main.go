@@ -43,16 +43,25 @@ func main() {
 	defer db.Close()
 
 	// Run migrations automatically
+	log.Println("")
+	log.Println("========================================")
 	log.Println("=== STARTING DATABASE MIGRATIONS ===")
-	if err := migrate.RunMigrations(db.DB, "migrations"); err != nil {
-		log.Printf("❌ CRITICAL: Failed to run migrations: %v", err)
+	log.Println("========================================")
+	migrationErr := migrate.RunMigrations(db.DB, "migrations")
+	if migrationErr != nil {
+		log.Println("")
+		log.Println("❌❌❌ CRITICAL ERROR: MIGRATIONS FAILED ❌❌❌")
+		log.Printf("Error: %v", migrationErr)
 		log.Println("Server will start but API endpoints WILL FAIL")
 		log.Println("Please check the error above and fix the migration issue")
+		log.Println("========================================")
 		// Don't exit - let server start so we can see the error in logs
 	} else {
-		log.Println("✅ MIGRATIONS COMPLETED SUCCESSFULLY")
+		log.Println("")
+		log.Println("✅✅✅ MIGRATIONS COMPLETED SUCCESSFULLY ✅✅✅")
+		log.Println("========================================")
+		log.Println("")
 	}
-	log.Println("=== MIGRATIONS FINISHED ===")
 
 	// Set up router
 	r := chi.NewRouter()
@@ -82,10 +91,32 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(api.RateLimitMiddleware(10, time.Minute)) // 10 requests per minute for health checks
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-			// Basic health check - can be extended to check database connectivity
+			// Check database connectivity
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			
+			var dbStatus string
+			var tablesExist bool
+			if err := db.QueryRowContext(ctx, "SELECT 1").Scan(new(int)); err != nil {
+				dbStatus = fmt.Sprintf("DB_ERROR: %v", err)
+			} else {
+				dbStatus = "DB_OK"
+				// Check if tables exist
+				var count int
+				if err := db.QueryRowContext(ctx, 
+					"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'projects'").Scan(&count); err == nil && count > 0 {
+					tablesExist = true
+				}
+			}
+			
 			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			if dbStatus == "DB_OK" && tablesExist {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(fmt.Sprintf("OK\nDatabase: %s\nTables: EXISTS", dbStatus)))
+			} else {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(fmt.Sprintf("UNHEALTHY\nDatabase: %s\nTables: %v", dbStatus, tablesExist)))
+			}
 		})
 	})
 
