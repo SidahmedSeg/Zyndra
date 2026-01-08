@@ -73,10 +73,22 @@ func main() {
 	r.Get("/git/callback/gitlab", gitHandler.CallbackGitLab)
 
 	// Authentication routes (public)
-	api.RegisterAuthRoutes(r, cfg)
+	if cfg.DisableAuth {
+		// Use mock auth for development
+		api.RegisterMockAuthRoutes(r, cfg)
+	} else {
+		// Use Casdoor OAuth
+		api.RegisterAuthRoutes(r, cfg)
+	}
 
 	// Initialize auth validator
-	authValidator := auth.NewValidator(cfg.CasdoorEndpoint, cfg.CasdoorClientID)
+	// Use mock validator for development/testing
+	var authValidator auth.ValidatorInterface
+	if cfg.DisableAuth {
+		authValidator = auth.NewMockValidator()
+	} else {
+		authValidator = auth.NewValidator(cfg.CasdoorEndpoint, cfg.CasdoorClientID)
+	}
 
 		// API routes (require authentication)
 		r.Route("/v1/click-deploy", func(r chi.Router) {

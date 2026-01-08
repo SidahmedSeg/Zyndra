@@ -73,6 +73,9 @@ type Config struct {
 
 	// CORS
 	CORSOrigins string `envconfig:"CORS_ORIGINS" default:"*"` // Comma-separated list of allowed origins
+
+	// Development
+	DisableAuth bool `envconfig:"DISABLE_AUTH" default:"true"` // Use mock auth for development (set to false for Casdoor)
 }
 
 func Load() (*Config, error) {

@@ -7,7 +7,7 @@ import (
 )
 
 // Middleware creates an authentication middleware
-func Middleware(validator *Validator) func(http.Handler) http.Handler {
+func Middleware(validator ValidatorInterface) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract token from Authorization header
@@ -27,9 +27,7 @@ func Middleware(validator *Validator) func(http.Handler) http.Handler {
 			tokenString := parts[1]
 
 			// Validate token
-			// For development, use simple validation
-			// In production, use ValidateToken with proper JWKS
-			claims, err := validator.ValidateTokenSimple(tokenString)
+			claims, err := validator.ValidateToken(tokenString)
 			if err != nil {
 				http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 				return
@@ -51,7 +49,7 @@ func Middleware(validator *Validator) func(http.Handler) http.Handler {
 // OptionalMiddleware creates a middleware that allows optional authentication
 // If token is present, it validates and adds context
 // If token is missing, request continues without user context
-func OptionalMiddleware(validator *Validator) func(http.Handler) http.Handler {
+func OptionalMiddleware(validator ValidatorInterface) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -69,7 +67,7 @@ func OptionalMiddleware(validator *Validator) func(http.Handler) http.Handler {
 			}
 
 			tokenString := parts[1]
-			claims, err := validator.ValidateTokenSimple(tokenString)
+			claims, err := validator.ValidateToken(tokenString)
 			if err != nil {
 				// Invalid token, continue without user context
 				next.ServeHTTP(w, r)
