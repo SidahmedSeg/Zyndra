@@ -2,13 +2,19 @@ package migrate
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"path/filepath"
 	"sort"
 	"strings"
 )
+
+//go:embed ../../migrations/postgres/*.sql
+var postgresMigrations embed.FS
+
+//go:embed ../../migrations/sqlite/*.sql
+var sqliteMigrations embed.FS
 
 // RunMigrations runs all migration files in the specified directory
 func RunMigrations(db *sql.DB, migrationsDir string) error {
@@ -17,11 +23,22 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	
 	log.Printf("Detected database type: %s", dbType)
 	
-	// Get migration directory based on database type
-	migrationPath := filepath.Join(migrationsDir, dbType)
+	// Get migration files from embedded filesystem
+	var migrationFS embed.FS
+	var migrationPath string
+	switch dbType {
+	case "postgres":
+		migrationFS = postgresMigrations
+		migrationPath = "migrations/postgres"
+	case "sqlite":
+		migrationFS = sqliteMigrations
+		migrationPath = "migrations/sqlite"
+	default:
+		return fmt.Errorf("unsupported database type: %s", dbType)
+	}
 	
 	// Read all migration files
-	files, err := ioutil.ReadDir(migrationPath)
+	files, err := migrationFS.ReadDir(migrationPath)
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
@@ -58,9 +75,9 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 			continue
 		}
 		
-		// Read migration file
-		migrationPath := filepath.Join(migrationPath, filename)
-		sql, err := ioutil.ReadFile(migrationPath)
+		// Read migration file from embedded filesystem
+		migrationFilePath := filepath.Join(migrationPath, filename)
+		sql, err := migrationFS.ReadFile(migrationFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", filename, err)
 		}
