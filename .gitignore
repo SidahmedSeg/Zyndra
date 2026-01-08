@@ -10,6 +10,10 @@
 server
 click-deploy
 
+# Exception: Include cmd/server directory (source code, not binary)
+!cmd/server/
+!cmd/server/**
+
 # Test binary, built with `go test -c`
 *.test
 
