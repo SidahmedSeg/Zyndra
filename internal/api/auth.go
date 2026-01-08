@@ -26,8 +26,15 @@ func (h *AuthHandler) InitiateCasdoorLogin(w http.ResponseWriter, r *http.Reques
 	// Get redirect URL from query or use default
 	redirectURL := r.URL.Query().Get("redirect_uri")
 	if redirectURL == "" {
-		// Default to frontend URL
-		redirectURL = strings.Replace(h.config.BaseURL, "api.", "", 1) + "/auth/callback"
+		// Default to frontend URL - construct from BASE_URL
+		// If BASE_URL is api.zyndra.armonika.cloud, frontend is zyndra.armonika.cloud
+		baseURL := h.config.BaseURL
+		if strings.Contains(baseURL, "api.") {
+			redirectURL = strings.Replace(baseURL, "api.", "", 1) + "/auth/callback"
+		} else {
+			// Fallback: assume frontend is on same domain
+			redirectURL = baseURL + "/auth/callback"
+		}
 	}
 
 	// Construct Casdoor OAuth URL
@@ -68,7 +75,12 @@ func (h *AuthHandler) CallbackCasdoor(w http.ResponseWriter, r *http.Request) {
 	// Get redirect_uri from query or use default
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	if redirectURI == "" {
-		redirectURI = strings.Replace(h.config.BaseURL, "api.", "", 1) + "/auth/callback"
+		baseURL := h.config.BaseURL
+		if strings.Contains(baseURL, "api.") {
+			redirectURI = strings.Replace(baseURL, "api.", "", 1) + "/auth/callback"
+		} else {
+			redirectURI = baseURL + "/auth/callback"
+		}
 	}
 	formData.Set("redirect_uri", redirectURI)
 
@@ -81,7 +93,10 @@ func (h *AuthHandler) CallbackCasdoor(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Token exchange failed: %d", resp.StatusCode), http.StatusInternalServerError)
+		// Read error response for debugging
+		bodyBytes := make([]byte, 1024)
+		resp.Body.Read(bodyBytes)
+		http.Error(w, fmt.Sprintf("Token exchange failed: %d - %s", resp.StatusCode, string(bodyBytes)), http.StatusInternalServerError)
 		return
 	}
 
@@ -100,7 +115,13 @@ func (h *AuthHandler) CallbackCasdoor(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to frontend with token
 	// In production, use a more secure method (e.g., httpOnly cookie)
-	frontendURL := strings.Replace(h.config.BaseURL, "api.", "", 1)
+	baseURL := h.config.BaseURL
+	var frontendURL string
+	if strings.Contains(baseURL, "api.") {
+		frontendURL = strings.Replace(baseURL, "api.", "", 1)
+	} else {
+		frontendURL = baseURL
+	}
 	redirectToFrontend := fmt.Sprintf("%s/auth/callback?token=%s", frontendURL, tokenResponse.AccessToken)
 	
 	http.Redirect(w, r, redirectToFrontend, http.StatusFound)
