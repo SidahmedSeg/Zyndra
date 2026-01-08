@@ -41,6 +41,12 @@ func main() {
 	}
 	defer db.Close()
 
+	// Check if database tables exist
+	if err := checkDatabaseTables(db.DB); err != nil {
+		log.Printf("Database check failed: %v", err)
+		log.Println("Server will start but API endpoints may fail until migrations are run")
+	}
+
 	// Set up router
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
