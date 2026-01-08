@@ -35,9 +35,10 @@ COPY --from=builder /app/package.json ./
 RUN mkdir -p ./public
 COPY --from=builder /app/public ./public
 
-# Create non-root user (use system user creation to avoid GID conflicts)
-RUN addgroup -S appuser && \
-    adduser -S -G appuser appuser
+# Create non-root user (avoid GID 1000 conflict by using system user)
+RUN addgroup -S appuser || true && \
+    adduser -S -G appuser -h /app appuser || \
+    (addgroup appuser && adduser -D -G appuser -h /app appuser)
 
 # Change ownership
 RUN chown -R appuser:appuser /app
