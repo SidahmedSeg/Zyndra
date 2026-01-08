@@ -60,7 +60,7 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.zyndra.armonika.cloud}
     ports:
       - "127.0.0.1:3000:3000"  # Only accessible from localhost/Caddy
     healthcheck:
