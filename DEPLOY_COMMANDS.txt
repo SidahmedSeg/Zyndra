@@ -1,0 +1,66 @@
+# Copy and paste these commands on your server (ubuntu@151.115.100.18)
+
+# ==========================================
+# COMPLETE DEPLOYMENT - Copy All Below
+# ==========================================
+
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sudo sh /tmp/get-docker.sh && sudo usermod -aG docker ubuntu && rm /tmp/get-docker.sh
+
+# Install Docker Compose
+sudo apt install -y docker-compose-plugin
+
+# Install Caddy
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+# Configure firewall
+sudo ufw --force enable && sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
+
+# Clone repository
+sudo mkdir -p /opt/zyndra && cd /opt/zyndra
+sudo git clone https://github.com/SidahmedSeg/Zyndra.git .
+sudo chown -R ubuntu:ubuntu /opt/zyndra && cd /opt/zyndra
+
+# Create environment file with generated password
+cp env.production.template .env.production
+DB_PASS=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+sed -i "s/REPLACE_WITH_STRONG_PASSWORD/$DB_PASS/g" .env.production
+echo "=========================================="
+echo "IMPORTANT: Save this PostgreSQL password:"
+echo "$DB_PASS"
+echo "=========================================="
+
+# Configure Caddy
+sudo cp Caddyfile.prod /etc/caddy/Caddyfile
+
+# Build and start services
+docker compose -f docker-compose.prod.yml --env-file .env.production build
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+
+# Start Caddy
+sudo systemctl start caddy && sudo systemctl enable caddy
+
+# Wait for services
+sleep 10
+
+# Check status
+echo "=========================================="
+echo "Services Status:"
+docker compose -f docker-compose.prod.yml ps
+
+echo ""
+echo "Migration Status:"
+docker compose -f docker-compose.prod.yml logs backend | grep -i migration | tail -10
+
+echo ""
+echo "Next: Configure DNS:"
+echo "  zyndra.armonika.cloud → 151.115.100.18"
+echo "  api.zyndra.armonika.cloud → 151.115.100.18"
+echo "=========================================="
+
