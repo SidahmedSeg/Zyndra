@@ -1,0 +1,26 @@
+# Zyndra Production Caddy Configuration
+
+# Frontend
+zyndra.armonika.cloud {
+    reverse_proxy http://127.0.0.1:3000
+    encode gzip
+}
+
+# Backend API
+api.zyndra.armonika.cloud {
+    reverse_proxy http://127.0.0.1:8080
+    encode gzip
+    
+    # CORS headers (if needed)
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+    }
+}
+
+# Prometheus (internal only, optional)
+# prometheus.zyndra.armonika.cloud {
+#     reverse_proxy http://127.0.0.1:9090
+# }
+
