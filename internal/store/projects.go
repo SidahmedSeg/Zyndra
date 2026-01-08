@@ -101,6 +101,11 @@ func (db *DB) ListProjectsByOrg(ctx context.Context, orgID string) ([]*Project, 
 
 	rows, err := db.QueryContext(ctx, query, orgID)
 	if err != nil {
+		// Check if it's a "table does not exist" error
+		errStr := err.Error()
+		if strings.Contains(errStr, "does not exist") || strings.Contains(errStr, "relation") && strings.Contains(errStr, "not found") {
+			return nil, fmt.Errorf("database table 'projects' does not exist. Please run migrations first: %w", err)
+		}
 		return nil, fmt.Errorf("failed to query projects: %w", err)
 	}
 	defer rows.Close()
