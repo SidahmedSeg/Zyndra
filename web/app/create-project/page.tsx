@@ -181,7 +181,7 @@ export default function CreateProjectPage() {
                 >
                   Architecture
                   {activeTab === 'architecture' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
                   )}
                 </button>
                 <button
@@ -194,7 +194,7 @@ export default function CreateProjectPage() {
                 >
                   Logs
                   {activeTab === 'logs' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
                   )}
                 </button>
                 <button
@@ -207,7 +207,7 @@ export default function CreateProjectPage() {
                 >
                   Settings
                   {activeTab === 'settings' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
                   )}
                 </button>
               </nav>
