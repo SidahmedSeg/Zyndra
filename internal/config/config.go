@@ -27,10 +27,18 @@ type Config struct {
 	RegistryUsername string `envconfig:"REGISTRY_USERNAME" required:"true"`
 	RegistryPassword string `envconfig:"REGISTRY_PASSWORD" required:"true"`
 
-	// GitHub OAuth
+	// GitHub OAuth (legacy)
 	GitHubClientID     string `envconfig:"GITHUB_CLIENT_ID"`
 	GitHubClientSecret string `envconfig:"GITHUB_CLIENT_SECRET"`
 	GitHubRedirectURL  string `envconfig:"GITHUB_REDIRECT_URL" default:"http://localhost:8080/api/git/callback/github"`
+
+	// GitHub App (for per-repository access)
+	GitHubAppID               int64  `envconfig:"GITHUB_APP_ID"`
+	GitHubAppClientID         string `envconfig:"GITHUB_APP_CLIENT_ID"`
+	GitHubAppClientSecret     string `envconfig:"GITHUB_APP_CLIENT_SECRET"`
+	GitHubAppPrivateKeyBase64 string `envconfig:"GITHUB_APP_PRIVATE_KEY_BASE64"`
+	GitHubAppName             string `envconfig:"GITHUB_APP_NAME"`
+	GitHubAppCallbackURL      string `envconfig:"GITHUB_APP_CALLBACK_URL" default:"http://localhost:8080/git/callback/github-app"`
 
 	// GitLab OAuth
 	GitLabClientID     string `envconfig:"GITLAB_CLIENT_ID"`

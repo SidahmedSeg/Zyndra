@@ -36,6 +36,11 @@ func RegisterGitRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	r.Get("/git/connect/github/url", h.GetGitHubOAuthURL)
 	r.Get("/git/connect/gitlab/url", h.GetGitLabOAuthURL)
 	
+	// GitHub App installation (returns JSON with installation URL)
+	r.Get("/git/app/github/install-url", h.GetGitHubAppInstallURL)
+	r.Get("/git/app/github/installations", h.ListGitHubAppInstallations)
+	r.Get("/git/app/github/installations/{installationId}/repos", h.ListGitHubAppInstallationRepos)
+	
 	// OAuth initiation (direct redirect - kept for backward compatibility)
 	r.Get("/git/connect/github", h.ConnectGitHub)
 	r.Get("/git/connect/gitlab", h.ConnectGitLab)
@@ -570,5 +575,137 @@ func (h *GitHandler) GetRepositoryTree(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tree)
+}
+
+// ===== GitHub App Handlers =====
+
+// GetGitHubAppInstallURL returns the URL for installing the GitHub App
+func (h *GitHandler) GetGitHubAppInstallURL(w http.ResponseWriter, r *http.Request) {
+	if h.config.GitHubAppName == "" {
+		WriteError(w, domain.NewInvalidInputError("GitHub App is not configured"))
+		return
+	}
+
+	installURL := git.GetGitHubAppInstallURL(h.config.GitHubAppName)
+	
+	WriteJSON(w, http.StatusOK, map[string]string{
+		"install_url": installURL,
+		"app_name":    h.config.GitHubAppName,
+	})
+}
+
+// ListGitHubAppInstallations lists all installations for the GitHub App
+func (h *GitHandler) ListGitHubAppInstallations(w http.ResponseWriter, r *http.Request) {
+	orgID := auth.GetOrgID(r.Context())
+	if orgID == "" {
+		WriteError(w, domain.ErrUnauthorized)
+		return
+	}
+
+	if h.config.GitHubAppID == 0 {
+		WriteError(w, domain.NewInvalidInputError("GitHub App is not configured"))
+		return
+	}
+
+	cfg := &git.GitHubAppConfig{
+		AppID:            h.config.GitHubAppID,
+		ClientID:         h.config.GitHubAppClientID,
+		ClientSecret:     h.config.GitHubAppClientSecret,
+		PrivateKeyBase64: h.config.GitHubAppPrivateKeyBase64,
+		AppName:          h.config.GitHubAppName,
+		CallbackURL:      h.config.GitHubAppCallbackURL,
+	}
+
+	installations, err := git.ListInstallations(r.Context(), cfg)
+	if err != nil {
+		WriteError(w, domain.ErrInternal.WithError(err))
+		return
+	}
+
+	// Map to response format
+	type InstallationResponse struct {
+		ID           int64  `json:"id"`
+		AccountLogin string `json:"account_login"`
+		AccountID    int64  `json:"account_id"`
+		AccountType  string `json:"account_type"`
+		HTMLURL      string `json:"html_url"`
+	}
+
+	response := make([]InstallationResponse, 0, len(installations))
+	for _, inst := range installations {
+		response = append(response, InstallationResponse{
+			ID:           inst.GetID(),
+			AccountLogin: inst.GetAccount().GetLogin(),
+			AccountID:    inst.GetAccount().GetID(),
+			AccountType:  inst.GetAccount().GetType(),
+			HTMLURL:      inst.GetHTMLURL(),
+		})
+	}
+
+	WriteJSON(w, http.StatusOK, response)
+}
+
+// ListGitHubAppInstallationRepos lists repositories for a specific installation
+func (h *GitHandler) ListGitHubAppInstallationRepos(w http.ResponseWriter, r *http.Request) {
+	orgID := auth.GetOrgID(r.Context())
+	if orgID == "" {
+		WriteError(w, domain.ErrUnauthorized)
+		return
+	}
+
+	installationIDStr := chi.URLParam(r, "installationId")
+	var installationID int64
+	if _, err := fmt.Sscanf(installationIDStr, "%d", &installationID); err != nil {
+		WriteError(w, domain.NewInvalidInputError("Invalid installation ID"))
+		return
+	}
+
+	if h.config.GitHubAppID == 0 {
+		WriteError(w, domain.NewInvalidInputError("GitHub App is not configured"))
+		return
+	}
+
+	cfg := &git.GitHubAppConfig{
+		AppID:            h.config.GitHubAppID,
+		ClientID:         h.config.GitHubAppClientID,
+		ClientSecret:     h.config.GitHubAppClientSecret,
+		PrivateKeyBase64: h.config.GitHubAppPrivateKeyBase64,
+		AppName:          h.config.GitHubAppName,
+		CallbackURL:      h.config.GitHubAppCallbackURL,
+	}
+
+	repos, err := git.GetInstallationRepositories(r.Context(), cfg, installationID)
+	if err != nil {
+		WriteError(w, domain.ErrInternal.WithError(err))
+		return
+	}
+
+	// Map to response format
+	type RepoResponse struct {
+		ID            int64  `json:"id"`
+		Name          string `json:"name"`
+		FullName      string `json:"full_name"`
+		Owner         string `json:"owner"`
+		Private       bool   `json:"private"`
+		DefaultBranch string `json:"default_branch"`
+		CloneURL      string `json:"clone_url"`
+		Description   string `json:"description"`
+	}
+
+	response := make([]RepoResponse, 0, len(repos))
+	for _, repo := range repos {
+		response = append(response, RepoResponse{
+			ID:            repo.GetID(),
+			Name:          repo.GetName(),
+			FullName:      repo.GetFullName(),
+			Owner:         repo.GetOwner().GetLogin(),
+			Private:       repo.GetPrivate(),
+			DefaultBranch: repo.GetDefaultBranch(),
+			CloneURL:      repo.GetCloneURL(),
+			Description:   repo.GetDescription(),
+		})
+	}
+
+	WriteJSON(w, http.StatusOK, response)
 }
 

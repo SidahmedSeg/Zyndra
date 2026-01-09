@@ -30,10 +30,11 @@ export default function OAuthConsentModal({
         sessionStorage.setItem('oauth_provider', provider)
         sessionStorage.setItem('oauth_from_page', window.location.pathname)
         
-        // Open OAuth in popup window
+        // Open OAuth/Installation in popup window
         let popup: Window | null = null
         if (provider === 'github') {
-          popup = await gitApi.connectGitHub()
+          // Use GitHub App installation flow (allows per-repo selection)
+          popup = await gitApi.installGitHubApp()
         } else {
           popup = await gitApi.connectGitLab()
         }
@@ -98,10 +99,11 @@ export default function OAuthConsentModal({
     github: {
       name: 'GitHub',
       icon: Github,
-      description: 'Connect your GitHub account to access your repositories',
+      description: 'Install the GitHub App to select specific repositories',
       permissions: [
-        'Access to public repositories only',
-        'Read user information',
+        'Select individual repositories to grant access',
+        'Read repository contents',
+        'Read repository metadata',
       ],
     },
     gitlab: {
@@ -109,7 +111,7 @@ export default function OAuthConsentModal({
       icon: Gitlab,
       description: 'Connect your GitLab account to access your repositories',
       permissions: [
-        'Access to public repositories only',
+        'Access to selected repositories',
         'Read user information',
       ],
     },
