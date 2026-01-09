@@ -1,4 +1,6 @@
-# Zyndra Production Caddy Configuration
+{
+    email admin@armonika.cloud
+}
 
 # Frontend
 zyndra.armonika.cloud {
