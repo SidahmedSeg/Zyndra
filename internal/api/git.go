@@ -597,6 +597,7 @@ func (h *GitHandler) GetGitHubAppInstallURL(w http.ResponseWriter, r *http.Reque
 // ListGitHubAppInstallations lists all installations for the GitHub App
 func (h *GitHandler) ListGitHubAppInstallations(w http.ResponseWriter, r *http.Request) {
 	orgID := auth.GetOrgID(r.Context())
+	userID := auth.GetUserID(r.Context())
 	if orgID == "" {
 		WriteError(w, domain.ErrUnauthorized)
 		return
@@ -620,6 +621,27 @@ func (h *GitHandler) ListGitHubAppInstallations(w http.ResponseWriter, r *http.R
 	if err != nil {
 		WriteError(w, domain.ErrInternal.WithError(err))
 		return
+	}
+
+	// Ensure we have a GitHub connection entry for this org (needed for service creation)
+	// Check if a GitHub connection already exists for this org
+	existingConnection, _ := h.store.GetGitConnectionByOrgAndProvider(r.Context(), orgID, "github")
+	if existingConnection == nil && len(installations) > 0 {
+		// Create a connection entry for GitHub App
+		// We'll use the first installation's account info
+		firstInst := installations[0]
+		connection := &store.GitConnection{
+			CasdoorOrgID: orgID,
+			Provider:     "github",
+			AccessToken:  fmt.Sprintf("github-app:%d", firstInst.GetID()), // Store installation ID as token
+			AccountName:  sql.NullString{String: firstInst.GetAccount().GetLogin(), Valid: true},
+			AccountID:    sql.NullString{String: fmt.Sprintf("%d", firstInst.GetAccount().GetID()), Valid: true},
+			ConnectedBy:  sql.NullString{String: userID, Valid: userID != ""},
+		}
+		if err := h.store.CreateGitConnection(r.Context(), connection); err != nil {
+			// Log but don't fail - the connection might already exist
+			fmt.Printf("Warning: failed to create GitHub App connection: %v\n", err)
+		}
 	}
 
 	// Map to response format
