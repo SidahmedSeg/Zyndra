@@ -21,27 +21,33 @@ function GitCallbackContent() {
       const oauthProvider = sessionStorage.getItem('oauth_provider') || provider
 
       if (success === 'true' || oauthPending === 'true') {
+        // Reset check attempts counter
+        sessionStorage.setItem('oauth_check_attempts', '0')
+        
         // Poll for connection status
         const checkConnection = async () => {
           try {
             const { gitApi } = await import('@/lib/api/git')
             const connections = await gitApi.listConnections()
+            console.log('Checking connections:', connections, 'Looking for provider:', oauthProvider)
+            
             const hasConnection = connections.some(
               (conn) => conn.provider === oauthProvider
             )
 
             if (hasConnection) {
               setStatus('success')
-              setMessage(`${provider === 'github' ? 'GitHub' : 'GitLab'} connection successful!`)
+              setMessage(`${oauthProvider === 'github' ? 'GitHub' : 'GitLab'} connection successful!`)
               sessionStorage.removeItem('oauth_pending')
               sessionStorage.removeItem('oauth_provider')
+              sessionStorage.removeItem('oauth_check_attempts')
 
               // Check if we're in a popup window
               if (window.opener) {
                 // Send message to parent window
-                window.opener.postMessage({ type: 'oauth-success' }, window.location.origin)
-                // Close popup
-                window.close()
+                window.opener.postMessage({ type: 'oauth-success', provider: oauthProvider }, window.location.origin)
+                // Close popup after a short delay
+                setTimeout(() => window.close(), 500)
               } else {
                 // Redirect after a short delay (not in popup)
                 setTimeout(() => {
@@ -56,14 +62,16 @@ function GitCallbackContent() {
                 }, 2000)
               }
             } else {
-              // Keep checking (max 10 attempts = 10 seconds)
+              // Keep checking (max 20 attempts = 20 seconds)
               const attempts = parseInt(sessionStorage.getItem('oauth_check_attempts') || '0')
-              if (attempts < 10) {
+              if (attempts < 20) {
                 sessionStorage.setItem('oauth_check_attempts', String(attempts + 1))
-                setTimeout(checkConnection, 1000)
+                // Increase delay slightly with each attempt (exponential backoff)
+                const delay = Math.min(1000 + (attempts * 200), 3000)
+                setTimeout(checkConnection, delay)
               } else {
                 setStatus('error')
-                setMessage('Connection verification timed out. Please try refreshing the page.')
+                setMessage('Connection verification timed out. The connection may have been created. Please refresh the page to see your repositories.')
                 sessionStorage.removeItem('oauth_pending')
                 sessionStorage.removeItem('oauth_provider')
                 sessionStorage.removeItem('oauth_check_attempts')
@@ -72,13 +80,20 @@ function GitCallbackContent() {
           } catch (error: any) {
             console.error('Error checking connection:', error)
             const attempts = parseInt(sessionStorage.getItem('oauth_check_attempts') || '0')
-            if (attempts < 5) {
-              // Retry a few times in case of temporary errors
+            // For auth errors, assume connection might be created but we can't verify
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+              setStatus('error')
+              setMessage('Authentication error. Please refresh the page - your connection may have been created.')
+              sessionStorage.removeItem('oauth_pending')
+              sessionStorage.removeItem('oauth_provider')
+              sessionStorage.removeItem('oauth_check_attempts')
+            } else if (attempts < 10) {
+              // Retry for other errors
               sessionStorage.setItem('oauth_check_attempts', String(attempts + 1))
               setTimeout(checkConnection, 2000)
             } else {
               setStatus('error')
-              const errorMsg = error?.response?.data?.message || error?.message || 'Failed to verify connection. Please try again.'
+              const errorMsg = error?.response?.data?.message || error?.message || 'Failed to verify connection. Please try refreshing the page.'
               setMessage(errorMsg)
               sessionStorage.removeItem('oauth_pending')
               sessionStorage.removeItem('oauth_provider')
@@ -87,8 +102,8 @@ function GitCallbackContent() {
           }
         }
 
-        // Start checking after a short delay to allow backend to process
-        setTimeout(checkConnection, 2000)
+        // Start checking after a longer delay to allow backend to fully process and commit
+        setTimeout(checkConnection, 3000)
       } else {
         // No pending OAuth, might be direct callback
         setStatus('success')
