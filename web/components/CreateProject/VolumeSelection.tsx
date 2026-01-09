@@ -30,7 +30,21 @@ export default function VolumeSelection({ projectId, onServiceCreated }: VolumeS
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+        <button
+          onClick={() => {
+            const event = new CustomEvent('back-to-selection')
+            window.dispatchEvent(event)
+          }}
+          className="p-1 hover:bg-gray-100 rounded transition-colors"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h3 className="text-sm font-medium text-gray-900">Volume</h3>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="flex flex-col items-center justify-center h-full">
           <div className="text-center mb-6">
             <HardDrive className="w-16 h-16 text-gray-400 mx-auto mb-4" />
