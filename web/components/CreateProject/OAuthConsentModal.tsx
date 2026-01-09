@@ -100,9 +100,8 @@ export default function OAuthConsentModal({
       icon: Github,
       description: 'Connect your GitHub account to access your repositories',
       permissions: [
-        'Read repository contents',
-        'Read repository metadata',
-        'Read and write webhooks',
+        'Access to public repositories only',
+        'Read user information',
       ],
     },
     gitlab: {
@@ -110,9 +109,8 @@ export default function OAuthConsentModal({
       icon: Gitlab,
       description: 'Connect your GitLab account to access your repositories',
       permissions: [
-        'Read repository contents',
-        'Read repository metadata',
-        'Read and write webhooks',
+        'Access to public repositories only',
+        'Read user information',
       ],
     },
   }
@@ -162,7 +160,7 @@ export default function OAuthConsentModal({
               </div>
 
               <p className="text-sm text-gray-500">
-                You&apos;ll be redirected to {info.name} to authorize Zyndra. After authorization, you&apos;ll be redirected back to continue.
+                You&apos;ll be redirected to {info.name} to authorize this application. After authorization, you&apos;ll be redirected back to continue.
               </p>
             </div>
 

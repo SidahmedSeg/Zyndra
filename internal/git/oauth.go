@@ -64,7 +64,9 @@ func GetGitHubOAuthURL(cfg *OAuthConfig, state string) string {
 		ClientID:     cfg.GitHubClientID,
 		ClientSecret: cfg.GitHubClientSecret,
 		RedirectURL:  redirectURL,
-		Scopes:       []string{"repo", "read:user", "read:org"},
+		// Use public_repo scope for single repository access (more limited than full repo access)
+		// Note: GitHub OAuth Apps don't support true single-repo scopes, but public_repo is more limited
+		Scopes:       []string{"public_repo", "read:user"},
 		Endpoint:     github.Endpoint,
 	}
 
@@ -95,11 +97,21 @@ func GetGitLabOAuthURL(cfg *OAuthConfig, state string) string {
 
 // ExchangeGitHubCode exchanges authorization code for access token
 func ExchangeGitHubCode(ctx context.Context, cfg *OAuthConfig, code string) (*oauth2.Token, error) {
+	// Ensure redirect URL doesn't have trailing slash
+	redirectURL := cfg.GitHubRedirectURL
+	if len(redirectURL) > 0 && redirectURL[len(redirectURL)-1] == '/' {
+		redirectURL = redirectURL[:len(redirectURL)-1]
+	}
+	
 	oauthConfig := &oauth2.Config{
 		ClientID:     cfg.GitHubClientID,
 		ClientSecret: cfg.GitHubClientSecret,
-		RedirectURL:  cfg.GitHubRedirectURL,
-		Scopes:       []string{"repo", "read:user", "read:org"},
+		RedirectURL:  redirectURL,
+		// Note: GitHub OAuth Apps don't support single-repository scopes
+		// To restrict to a single repo, you need to use GitHub Apps (not OAuth Apps)
+		// For now, using minimal scopes - user will need to select repo after auth
+		// public_repo: access to public repositories only (more limited)
+		Scopes:       []string{"public_repo", "read:user"},
 		Endpoint:     github.Endpoint,
 	}
 

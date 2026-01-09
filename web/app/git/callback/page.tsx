@@ -12,11 +12,15 @@ function GitCallbackContent() {
 
   useEffect(() => {
     const checkOAuthStatus = async () => {
+      // Check URL params for success
+      const success = searchParams.get('success')
+      const provider = searchParams.get('provider') || 'github'
+      
       // Check if we have a pending OAuth from sessionStorage
       const oauthPending = sessionStorage.getItem('oauth_pending')
-      const oauthProvider = sessionStorage.getItem('oauth_provider')
+      const oauthProvider = sessionStorage.getItem('oauth_provider') || provider
 
-      if (oauthPending === 'true') {
+      if (success === 'true' || oauthPending === 'true') {
         // Poll for connection status
         const checkConnection = async () => {
           try {

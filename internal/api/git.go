@@ -257,12 +257,20 @@ func (h *GitHandler) CallbackGitHub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect to success page or return JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":    true,
-		"connection": connection,
-	})
+	// Redirect to frontend callback page
+	// Determine frontend URL from config or default
+	frontendURL := h.config.BaseURL
+	if frontendURL == "" || frontendURL == "http://localhost:8080" {
+		frontendURL = "https://zyndra.armonika.cloud"
+	}
+	// Convert backend URL to frontend URL if needed
+	if frontendURL == "https://api.zyndra.armonika.cloud" {
+		frontendURL = "https://zyndra.armonika.cloud"
+	}
+	
+	// Redirect to frontend callback page
+	redirectURL := fmt.Sprintf("%s/git/callback?success=true&provider=github", frontendURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // CallbackGitLab handles GitLab OAuth callback
