@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/api/client'
 
 export default function Home() {
   const router = useRouter()
-  const { projects, fetchProjects, selectedProject } = useProjectsStore()
+  const { projects, fetchProjects, selectedProject, loading } = useProjectsStore()
 
   useEffect(() => {
     // Check if user is authenticated
@@ -39,9 +39,11 @@ export default function Home() {
       <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
         <h1 className="text-4xl font-bold mb-4">Click to Deploy</h1>
         <p className="text-lg mb-4">No-code deployment platform</p>
-        {projects.length === 0 && (
+        {loading ? (
           <p className="text-gray-500">Loading projects...</p>
-        )}
+        ) : projects.length === 0 ? (
+          <p className="text-gray-500">No projects found. Create your first project to get started.</p>
+        ) : null}
       </div>
     </main>
   )
