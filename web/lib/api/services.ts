@@ -67,5 +67,9 @@ export const servicesApi = {
     apiClient.patch<Service>(`/services/${id}/position`, data),
 
   delete: (id: string) => apiClient.delete(`/services/${id}`),
+
+  // Trigger deployment for a service
+  triggerDeployment: (serviceId: string, data?: { commit_sha?: string; branch?: string }) =>
+    apiClient.post<any>(`/services/${serviceId}/deploy`, data || {}),
 }
 

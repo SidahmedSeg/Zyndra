@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, ChevronDown, ChevronRight, Database, Container, Settings } from 'lucide-react'
+import { Bell, ChevronDown, ChevronRight, Database, Container, Settings, Loader2 } from 'lucide-react'
 import { useProjectsStore } from '@/stores/projectsStore'
 import { gitApi, type GitRepository, type GitHubAppInstallation } from '@/lib/api/git'
 import { useServicesStore } from '@/stores/servicesStore'
+import { servicesApi } from '@/lib/api/services'
 
 type TabType = 'architecture' | 'logs' | 'settings'
 
@@ -113,14 +114,21 @@ export default function CreateProjectPage() {
     }
   }
 
+  const [deploying, setDeploying] = useState(false)
+  const [deployingRepo, setDeployingRepo] = useState<string | null>(null)
+
   const handleSelectRepo = async (repo: GitRepository) => {
     if (!projectId) return
+    
+    setDeploying(true)
+    setDeployingRepo(repo.id?.toString() || repo.name)
     
     try {
       const owner = repo.owner || repo.full_name.split('/')[0]
       const repoName = repo.name
 
-      await createService(projectId, {
+      // Create the service with git source
+      const service = await createService(projectId, {
         name: repoName,
         type: 'app',
         instance_size: 'small',
@@ -133,9 +141,21 @@ export default function CreateProjectPage() {
         },
       })
 
+      // Trigger deployment
+      try {
+        await servicesApi.triggerDeployment(service.id)
+      } catch (deployErr) {
+        console.warn('Failed to trigger deployment (build queue might not be running):', deployErr)
+        // Don't block navigation, deployment can be triggered manually
+      }
+
+      // Navigate to canvas
       router.push(`/canvas/${projectId}`)
     } catch (error) {
       console.error('Failed to create service from repo:', error)
+      setError('Failed to create service. Please try again.')
+      setDeploying(false)
+      setDeployingRepo(null)
     }
   }
 
@@ -349,24 +369,41 @@ export default function CreateProjectPage() {
                   )}
 
                   {/* Repositories list */}
-                  {!loading && repos.map((repo) => (
-                    <button
-                      key={repo.id}
-                      onClick={() => handleSelectRepo(repo)}
-                      className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src="/github-icon.svg" 
-                          alt="" 
-                          className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" 
-                        />
-                        <span className="text-sm text-gray-500 group-hover:text-gray-900 transition-colors">
-                          {repo.full_name || repo.name}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                  {!loading && repos.map((repo) => {
+                    const repoKey = repo.id?.toString() || repo.name
+                    const isDeployingThis = deploying && deployingRepo === repoKey
+                    
+                    return (
+                      <button
+                        key={repo.id}
+                        onClick={() => handleSelectRepo(repo)}
+                        disabled={deploying}
+                        className={`w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group ${
+                          deploying ? 'cursor-not-allowed opacity-60' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isDeployingThis ? (
+                            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+                          ) : (
+                            <img 
+                              src="/github-icon.svg" 
+                              alt="" 
+                              className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" 
+                            />
+                          )}
+                          <span className="text-sm text-gray-500 group-hover:text-gray-900 transition-colors">
+                            {repo.full_name || repo.name}
+                          </span>
+                        </div>
+                        {isDeployingThis && (
+                          <span className="text-xs text-indigo-600 font-medium">
+                            Deploying...
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
 
                   {/* No repos message */}
                   {!loading && repos.length === 0 && !error && installations.length > 0 && (

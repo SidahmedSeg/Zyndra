@@ -6,12 +6,12 @@ export interface Deployment {
   commit_sha?: string
   commit_message?: string
   commit_author?: string
-  status: string
+  status: 'queued' | 'building' | 'pushing' | 'deploying' | 'success' | 'failed' | 'cancelled'
   image_tag?: string
   build_duration?: number
   deploy_duration?: number
   error_message?: string
-  triggered_by: string
+  triggered_by: 'webhook' | 'manual' | 'rollback'
   started_at?: string
   finished_at?: string
   created_at: string
@@ -24,39 +24,54 @@ export interface DeploymentLog {
   phase: string
   level: string
   message: string
-  metadata?: any
+  metadata?: Record<string, any>
 }
 
 export interface TriggerDeploymentRequest {
-  git_source_id?: string
   commit_sha?: string
-  triggered_by: string
+  branch?: string
+}
+
+// Map backend status to UI-friendly status
+export const getStatusDisplay = (status: Deployment['status']): { label: string; color: string } => {
+  switch (status) {
+    case 'queued':
+      return { label: 'Initializing', color: 'text-yellow-500' }
+    case 'building':
+      return { label: 'Building image', color: 'text-blue-500' }
+    case 'pushing':
+      return { label: 'Deploying', color: 'text-purple-500' }
+    case 'deploying':
+      return { label: 'Post deploy', color: 'text-indigo-500' }
+    case 'success':
+      return { label: 'Online', color: 'text-green-500' }
+    case 'failed':
+      return { label: 'Failed', color: 'text-red-500' }
+    case 'cancelled':
+      return { label: 'Cancelled', color: 'text-gray-500' }
+    default:
+      return { label: status, color: 'text-gray-400' }
+  }
 }
 
 export const deploymentsApi = {
-  listByService: (serviceId: string, limit?: number, offset?: number) => {
-    const params = new URLSearchParams()
-    if (limit) params.append('limit', limit.toString())
-    if (offset) params.append('offset', offset.toString())
-    return apiClient.get<Deployment[]>(
-      `/services/${serviceId}/deployments?${params.toString()}`
-    )
-  },
+  // Trigger a new deployment for a service
+  trigger: (serviceId: string, data?: TriggerDeploymentRequest) =>
+    apiClient.post<Deployment>(`/services/${serviceId}/deploy`, data || {}),
 
-  get: (id: string) => apiClient.get<Deployment>(`/deployments/${id}`),
+  // Get a deployment by ID
+  get: (deploymentId: string) =>
+    apiClient.get<Deployment>(`/deployments/${deploymentId}`),
 
-  getLogs: (id: string, limit?: number, offset?: number) => {
-    const params = new URLSearchParams()
-    if (limit) params.append('limit', limit.toString())
-    if (offset) params.append('offset', offset.toString())
-    return apiClient.get<DeploymentLog[]>(
-      `/deployments/${id}/logs?${params.toString()}`
-    )
-  },
+  // Get deployment logs
+  getLogs: (deploymentId: string, limit?: number) =>
+    apiClient.get<DeploymentLog[]>(`/deployments/${deploymentId}/logs${limit ? `?limit=${limit}` : ''}`),
 
-  trigger: (serviceId: string, data: TriggerDeploymentRequest) =>
-    apiClient.post<Deployment>(`/services/${serviceId}/deploy`, data),
+  // Cancel a deployment
+  cancel: (deploymentId: string) =>
+    apiClient.post<void>(`/deployments/${deploymentId}/cancel`),
 
-  cancel: (id: string) => apiClient.post(`/deployments/${id}/cancel`),
+  // List deployments for a service
+  listByService: (serviceId: string, limit?: number) =>
+    apiClient.get<Deployment[]>(`/services/${serviceId}/deployments${limit ? `?limit=${limit}` : ''}`),
 }
-

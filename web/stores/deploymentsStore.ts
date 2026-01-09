@@ -1,71 +1,35 @@
 import { create } from 'zustand'
-import { deploymentsApi, type Deployment, type DeploymentLog } from '@/lib/api/deployments'
+import { deploymentsApi, type Deployment } from '@/lib/api/deployments'
 
 interface DeploymentsState {
-  deployments: Record<string, Deployment[]> // keyed by serviceId
-  logs: Record<string, DeploymentLog[]> // keyed by deploymentId
+  deployments: Record<string, Deployment[]> // serviceId -> deployments
+  activeDeployments: Record<string, Deployment> // serviceId -> current deployment
   loading: boolean
   error: string | null
 
   // Actions
+  triggerDeployment: (serviceId: string) => Promise<Deployment>
   fetchDeployments: (serviceId: string) => Promise<void>
-  fetchDeployment: (id: string) => Promise<Deployment>
-  fetchLogs: (id: string) => Promise<void>
-  triggerDeployment: (serviceId: string, data: any) => Promise<Deployment>
-  cancelDeployment: (id: string) => Promise<void>
+  fetchDeployment: (deploymentId: string) => Promise<Deployment>
+  pollDeploymentStatus: (deploymentId: string, serviceId: string, onUpdate?: (deployment: Deployment) => void) => () => void
+  setActiveDeployment: (serviceId: string, deployment: Deployment) => void
   clearError: () => void
 }
 
 export const useDeploymentsStore = create<DeploymentsState>((set, get) => ({
   deployments: {},
-  logs: {},
+  activeDeployments: {},
   loading: false,
   error: null,
 
-  fetchDeployments: async (serviceId: string) => {
+  triggerDeployment: async (serviceId: string) => {
     set({ loading: true, error: null })
     try {
-      const deployments = await deploymentsApi.listByService(serviceId)
+      const deployment = await deploymentsApi.trigger(serviceId)
       set((state) => ({
-        deployments: { ...state.deployments, [serviceId]: deployments },
-        loading: false,
-      }))
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch deployments', loading: false })
-    }
-  },
-
-  fetchDeployment: async (id: string) => {
-    set({ loading: true, error: null })
-    try {
-      const deployment = await deploymentsApi.get(id)
-      set({ loading: false })
-      return deployment
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch deployment', loading: false })
-      throw error
-    }
-  },
-
-  fetchLogs: async (id: string) => {
-    try {
-      const logs = await deploymentsApi.getLogs(id)
-      set((state) => ({
-        logs: { ...state.logs, [id]: logs },
-      }))
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch logs' })
-    }
-  },
-
-  triggerDeployment: async (serviceId: string, data: any) => {
-    set({ loading: true, error: null })
-    try {
-      const deployment = await deploymentsApi.trigger(serviceId, data)
-      set((state) => ({
-        deployments: {
-          ...state.deployments,
-          [serviceId]: [deployment, ...(state.deployments[serviceId] || [])],
+        activeDeployments: {
+          ...state.activeDeployments,
+          [serviceId]: deployment,
         },
         loading: false,
       }))
@@ -76,34 +40,90 @@ export const useDeploymentsStore = create<DeploymentsState>((set, get) => ({
     }
   },
 
-  cancelDeployment: async (id: string) => {
+  fetchDeployments: async (serviceId: string) => {
     set({ loading: true, error: null })
     try {
-      await deploymentsApi.cancel(id)
-      set({ loading: false })
-      // Update deployment status in store
-      const deployments = get().deployments
-      for (const serviceId in deployments) {
-        const index = deployments[serviceId].findIndex((d) => d.id === id)
-        if (index >= 0) {
-          deployments[serviceId][index] = {
-            ...deployments[serviceId][index],
-            status: 'cancelled',
-          }
-          set((state) => ({
-            deployments: { ...state.deployments, [serviceId]: deployments[serviceId] },
-          }))
-          break
-        }
-      }
+      const deployments = await deploymentsApi.listByService(serviceId)
+      set((state) => ({
+        deployments: {
+          ...state.deployments,
+          [serviceId]: Array.isArray(deployments) ? deployments : [],
+        },
+        loading: false,
+      }))
     } catch (error: any) {
-      set({ error: error.message || 'Failed to cancel deployment', loading: false })
+      set({ error: error.message || 'Failed to fetch deployments', loading: false })
+    }
+  },
+
+  fetchDeployment: async (deploymentId: string) => {
+    try {
+      const deployment = await deploymentsApi.get(deploymentId)
+      return deployment
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to fetch deployment' })
       throw error
     }
+  },
+
+  pollDeploymentStatus: (deploymentId: string, serviceId: string, onUpdate?: (deployment: Deployment) => void) => {
+    let intervalId: NodeJS.Timeout | null = null
+    let isPolling = true
+
+    const poll = async () => {
+      if (!isPolling) return
+
+      try {
+        const deployment = await deploymentsApi.get(deploymentId)
+        
+        set((state) => ({
+          activeDeployments: {
+            ...state.activeDeployments,
+            [serviceId]: deployment,
+          },
+        }))
+
+        if (onUpdate) {
+          onUpdate(deployment)
+        }
+
+        // Stop polling if deployment is finished
+        if (['success', 'failed', 'cancelled'].includes(deployment.status)) {
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
+        }
+      } catch (error) {
+        console.error('Error polling deployment status:', error)
+      }
+    }
+
+    // Initial poll
+    poll()
+    
+    // Poll every 2 seconds
+    intervalId = setInterval(poll, 2000)
+
+    // Return cleanup function
+    return () => {
+      isPolling = false
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  },
+
+  setActiveDeployment: (serviceId: string, deployment: Deployment) => {
+    set((state) => ({
+      activeDeployments: {
+        ...state.activeDeployments,
+        [serviceId]: deployment,
+      },
+    }))
   },
 
   clearError: () => {
     set({ error: null })
   },
 }))
-

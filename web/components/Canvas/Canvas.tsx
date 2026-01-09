@@ -30,6 +30,7 @@ import ContextMenu from './ContextMenu'
 import CanvasHeader from './CanvasHeader'
 import RepoSelectionModal from './RepoSelectionModal'
 import type { GitRepository } from '@/lib/api/git'
+import { servicesApi } from '@/lib/api/services'
 
 const nodeTypes = {
   service: ServiceNode,
@@ -326,6 +327,14 @@ export default function Canvas({ projectId }: CanvasProps) {
             branch: repo.default_branch || 'main',
           },
         })
+        
+        // Trigger deployment
+        try {
+          await servicesApi.triggerDeployment(service.id)
+        } catch (deployErr) {
+          console.warn('Failed to trigger deployment:', deployErr)
+        }
+        
         setSelectedService(service)
         setPendingNodePosition(null)
         // Refresh services to show the new one
