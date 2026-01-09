@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, User, LayoutGrid, Github, Database, FileText, Package, Code, HardDrive, Plus, ChevronRight } from 'lucide-react'
+import { Bell, ChevronDown, ChevronRight, Github, Database, Container } from 'lucide-react'
+import Image from 'next/image'
 import { useProjectsStore } from '@/stores/projectsStore'
 import GitHubRepoSelection from '@/components/CreateProject/GitHubRepoSelection'
 import DatabaseSelection from '@/components/CreateProject/DatabaseSelection'
-import VolumeSelection from '@/components/CreateProject/VolumeSelection'
 
 export default function CreateProjectPage() {
   const router = useRouter()
@@ -34,49 +34,74 @@ export default function CreateProjectPage() {
     }
   }
 
-  const handleBack = () => {
-    setSelectedOption(null)
-  }
-
   const handleServiceCreated = () => {
     if (projectId) {
       router.push(`/canvas/${projectId}`)
     }
   }
 
-  const deploymentOptions = [
-    { id: 'github', label: 'GitHub Repository', icon: Github, color: 'text-gray-900' },
-    { id: 'database', label: 'Database', icon: Database, color: 'text-gray-900' },
-    { id: 'template', label: 'Template', icon: FileText, color: 'text-gray-900' },
-    { id: 'docker', label: 'Docker Image', icon: Package, color: 'text-gray-900' },
-    { id: 'function', label: 'Function', icon: Code, color: 'text-gray-900' },
-    { id: 'bucket', label: 'Bucket', icon: HardDrive, color: 'text-gray-900' },
-    { id: 'empty', label: 'Empty Project', icon: Plus, color: 'text-gray-900' },
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50" style={{
-      backgroundImage: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)',
-      backgroundSize: '20px 20px'
+    <div className="min-h-screen bg-[#f8f8f8]" style={{
+      backgroundImage: 'radial-gradient(circle, #d4d4d4 1px, transparent 1px)',
+      backgroundSize: '24px 24px'
     }}>
       {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-6 py-4">
+      <header className="bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
-                <div className="w-4 h-4 bg-white rounded-sm"></div>
-              </div>
-              <h1 className="text-lg font-semibold text-gray-900">New Project</h1>
-            </div>
+            {/* Left side - Logo and navigation */}
             <div className="flex items-center gap-4">
-              <a href="/" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
-              <button className="relative">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">24</span>
+              {/* Logo */}
+              <a href="/" className="flex-shrink-0">
+                <img 
+                  src="/logo-zyndra.svg" 
+                  alt="Zyndra" 
+                  className="h-[18px] w-auto"
+                />
+              </a>
+              
+              {/* Project name dropdown */}
+              <button className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors">
+                <span>Project name</span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                <User className="w-5 h-5 text-gray-600" />
+              
+              {/* Separator */}
+              <span className="text-gray-300">/</span>
+              
+              {/* Environment dropdown */}
+              <button className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors">
+                <span>Production</span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Right side - Navigation and user */}
+            <div className="flex items-center gap-6">
+              {/* Navigation links */}
+              <nav className="flex items-center gap-6">
+                <a href="#" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Architecture
+                </a>
+                <a href="#" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Logs
+                </a>
+                <a href="#" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Settings
+                </a>
+              </nav>
+
+              {/* Notification bell */}
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors">
+                <Bell className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600">32</span>
+              </button>
+
+              {/* User avatar */}
+              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-emerald-600">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
               </div>
             </div>
           </div>
@@ -84,69 +109,91 @@ export default function CreateProjectPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Icon and Title Section */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <div className="relative w-24 h-24">
-                <div className="absolute inset-0 grid grid-cols-2 gap-1">
-                  <div className="w-full h-full bg-purple-600 rounded-tl-lg"></div>
-                  <div className="w-full h-full bg-purple-600 rounded-tr-lg"></div>
-                  <div className="w-full h-full bg-purple-600 rounded-bl-lg"></div>
-                  <div className="w-full h-full bg-purple-600 rounded-br-lg relative">
-                    <Plus className="absolute bottom-0 right-0 w-4 h-4 text-white" />
-                  </div>
+      <main className="flex items-center justify-center min-h-[calc(100vh-73px)]">
+        <div className="w-full max-w-md px-6">
+          {/* Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              {/* 2x2 grid of squares */}
+              <div className="grid grid-cols-2 gap-1">
+                <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
+                <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
+                <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
+                <div className="w-6 h-6 bg-indigo-600 rounded-sm relative">
+                  {/* Small plus sign */}
+                  <svg 
+                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 text-indigo-600" 
+                    fill="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
                 </div>
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">New project</h1>
-            <p className="text-lg text-gray-600">Let&apos;s deploy your first service to production</p>
           </div>
 
-          {/* Deployment Options Card */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">What would you like to deploy today?</h2>
-            </div>
-            
-            <div className="max-h-[500px] overflow-y-auto">
-              {selectedOption === null ? (
-                <div className="divide-y divide-gray-200">
-                  {deploymentOptions.map((option) => {
-                    const Icon = option.icon
-                    return (
-                      <button
-                        key={option.id}
-                        onClick={() => handleOptionSelect(option.id)}
-                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className={`w-5 h-5 ${option.color}`} />
-                          <span className="text-sm font-medium text-gray-900">{option.label}</span>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : selectedOption === 'github' && projectId ? (
-                <GitHubRepoSelection
-                  projectId={projectId}
-                  onServiceCreated={handleServiceCreated}
-                />
-              ) : selectedOption === 'database' && projectId ? (
-                <DatabaseSelection
-                  projectId={projectId}
-                  onServiceCreated={handleServiceCreated}
-                />
-              ) : selectedOption === 'bucket' && projectId ? (
-                <VolumeSelection
-                  projectId={projectId}
-                  onServiceCreated={handleServiceCreated}
-                />
-              ) : null}
-            </div>
+          {/* Title */}
+          <h1 className="text-3xl font-semibold text-gray-900 text-center mb-2">
+            New project
+          </h1>
+          
+          {/* Subtitle */}
+          <p className="text-gray-500 text-center mb-8">
+            Let&apos;s deploy your service to production
+          </p>
+
+          {/* Options Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {selectedOption === null ? (
+              <div className="divide-y divide-gray-100">
+                {/* GitHub repository option */}
+                <button
+                  onClick={() => handleOptionSelect('github')}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Github className="w-5 h-5 text-gray-700" />
+                    <span className="text-sm font-medium text-gray-800">Github repository</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </button>
+
+                {/* Database option */}
+                <button
+                  onClick={() => handleOptionSelect('database')}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Database className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm text-gray-600">Database</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </button>
+
+                {/* Docker image option */}
+                <button
+                  onClick={() => handleOptionSelect('docker')}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Container className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm text-gray-600">Docker image</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </button>
+              </div>
+            ) : selectedOption === 'github' && projectId ? (
+              <GitHubRepoSelection
+                projectId={projectId}
+                onServiceCreated={handleServiceCreated}
+              />
+            ) : selectedOption === 'database' && projectId ? (
+              <DatabaseSelection
+                projectId={projectId}
+                onServiceCreated={handleServiceCreated}
+              />
+            ) : null}
           </div>
         </div>
       </main>
