@@ -32,7 +32,7 @@ function GitCallbackContent() {
 
             if (hasConnection) {
               setStatus('success')
-              setMessage('GitHub connection successful!')
+              setMessage(`${provider === 'github' ? 'GitHub' : 'GitLab'} connection successful!`)
               sessionStorage.removeItem('oauth_pending')
               sessionStorage.removeItem('oauth_provider')
 
@@ -56,13 +56,34 @@ function GitCallbackContent() {
                 }, 2000)
               }
             } else {
-              // Keep checking
-              setTimeout(checkConnection, 1000)
+              // Keep checking (max 10 attempts = 10 seconds)
+              const attempts = parseInt(sessionStorage.getItem('oauth_check_attempts') || '0')
+              if (attempts < 10) {
+                sessionStorage.setItem('oauth_check_attempts', String(attempts + 1))
+                setTimeout(checkConnection, 1000)
+              } else {
+                setStatus('error')
+                setMessage('Connection verification timed out. Please try refreshing the page.')
+                sessionStorage.removeItem('oauth_pending')
+                sessionStorage.removeItem('oauth_provider')
+                sessionStorage.removeItem('oauth_check_attempts')
+              }
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error checking connection:', error)
-            setStatus('error')
-            setMessage('Failed to verify connection. Please try again.')
+            const attempts = parseInt(sessionStorage.getItem('oauth_check_attempts') || '0')
+            if (attempts < 5) {
+              // Retry a few times in case of temporary errors
+              sessionStorage.setItem('oauth_check_attempts', String(attempts + 1))
+              setTimeout(checkConnection, 2000)
+            } else {
+              setStatus('error')
+              const errorMsg = error?.response?.data?.message || error?.message || 'Failed to verify connection. Please try again.'
+              setMessage(errorMsg)
+              sessionStorage.removeItem('oauth_pending')
+              sessionStorage.removeItem('oauth_provider')
+              sessionStorage.removeItem('oauth_check_attempts')
+            }
           }
         }
 

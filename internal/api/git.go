@@ -430,7 +430,7 @@ func (h *GitHandler) ListRepositories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if connection == nil {
-		http.Error(w, "No connection found for provider", http.StatusNotFound)
+		WriteError(w, domain.NewNotFoundError(fmt.Sprintf("No %s connection found. Please connect your %s account first.", provider, provider)))
 		return
 	}
 
