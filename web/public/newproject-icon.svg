@@ -1,0 +1,11 @@
+<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top left square -->
+  <rect x="0" y="0" width="24" height="24" rx="4" fill="#4F46E5"/>
+  <!-- Top right square -->
+  <rect x="28" y="0" width="24" height="24" rx="4" fill="#4F46E5"/>
+  <!-- Bottom left square -->
+  <rect x="0" y="28" width="24" height="24" rx="4" fill="#4F46E5"/>
+  <!-- Bottom right - Plus sign -->
+  <path d="M40 34V46M34 40H46" stroke="#06B6D4" stroke-width="3" stroke-linecap="round"/>
+</svg>
+
