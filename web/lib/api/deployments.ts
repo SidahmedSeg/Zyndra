@@ -30,6 +30,7 @@ export interface DeploymentLog {
 export interface TriggerDeploymentRequest {
   commit_sha?: string
   branch?: string
+  triggered_by?: string
 }
 
 // Map backend status to UI-friendly status

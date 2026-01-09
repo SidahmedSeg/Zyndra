@@ -8,7 +8,7 @@ interface DeploymentsState {
   error: string | null
 
   // Actions
-  triggerDeployment: (serviceId: string) => Promise<Deployment>
+  triggerDeployment: (serviceId: string, options?: { triggered_by?: string; commit_sha?: string; branch?: string }) => Promise<Deployment>
   cancelDeployment: (deploymentId: string) => Promise<void>
   fetchDeployments: (serviceId: string) => Promise<void>
   fetchDeployment: (deploymentId: string) => Promise<Deployment>
@@ -23,10 +23,10 @@ export const useDeploymentsStore = create<DeploymentsState>((set, get) => ({
   loading: false,
   error: null,
 
-  triggerDeployment: async (serviceId: string) => {
+  triggerDeployment: async (serviceId: string, options?: { triggered_by?: string; commit_sha?: string; branch?: string }) => {
     set({ loading: true, error: null })
     try {
-      const deployment = await deploymentsApi.trigger(serviceId)
+      const deployment = await deploymentsApi.trigger(serviceId, options)
       set((state) => ({
         activeDeployments: {
           ...state.activeDeployments,
