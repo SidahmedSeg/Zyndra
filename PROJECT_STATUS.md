@@ -70,6 +70,153 @@
 
 **Deployment Date:** January 9, 2026
 
+### Deployment Process
+
+**SSH Access:**
+- **Server:** `ubuntu@151.115.100.18`
+- **SSH Key:** `ssh02` (ED25519 private key stored locally)
+- **Key Location:** `/Users/intelifoxdz/Click2Deploy/ssh02` (local development machine)
+- **Key Type:** OpenSSH ED25519
+- **Public Key:** Already added to server's `~/.ssh/authorized_keys`
+
+**Initial Deployment Steps:**
+
+1. **SSH Connection:**
+   ```bash
+   ssh -i ssh02 ubuntu@151.115.100.18
+   ```
+
+2. **Automated Deployment Script:**
+   ```bash
+   # Option 1: One-liner (from local machine)
+   ssh -i ssh02 ubuntu@151.115.100.18 "bash <(curl -s https://raw.githubusercontent.com/SidahmedSeg/Zyndra/main/scripts/full-deploy.sh)"
+   
+   # Option 2: Manual execution (on server)
+   cd /opt/zyndra
+   bash scripts/full-deploy.sh
+   ```
+
+3. **What the Deployment Script Does:**
+   - Updates system packages
+   - Installs Docker and Docker Compose
+   - Installs and configures Caddy reverse proxy
+   - Configures firewall (UFW) - ports 22, 80, 443
+   - Clones repository to `/opt/zyndra`
+   - Creates `.env.production` from template
+   - Generates secure PostgreSQL password
+   - Configures Caddy with domains
+   - Builds Docker images
+   - Starts all services via Docker Compose
+   - Enables and starts Caddy service
+
+4. **Manual Deployment (if needed):**
+   ```bash
+   # SSH to server
+   ssh -i ssh02 ubuntu@151.115.100.18
+   
+   # Navigate to deployment directory
+   cd /opt/zyndra
+   
+   # Pull latest code
+   git pull origin main
+   
+   # Rebuild and restart services
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production build
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+   
+   # Reload Caddy (if Caddyfile changed)
+   sudo cp Caddyfile.prod /etc/caddy/Caddyfile
+   sudo systemctl reload caddy
+   ```
+
+**Updating the Deployment:**
+
+1. **Code Updates:**
+   ```bash
+   # From local machine, push changes to GitHub
+   git add .
+   git commit -m "Your changes"
+   git push origin main
+   
+   # SSH to server and pull updates
+   ssh -i ssh02 ubuntu@151.115.100.18
+   cd /opt/zyndra
+   git pull origin main
+   
+   # Rebuild affected services
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production build backend
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production up -d backend
+   ```
+
+2. **Frontend Updates:**
+   ```bash
+   # Rebuild frontend
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production build frontend
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production up -d frontend
+   ```
+
+3. **Configuration Updates:**
+   ```bash
+   # Edit environment variables
+   cd /opt/zyndra
+   nano .env.production
+   
+   # Restart services to pick up changes
+   sudo docker compose -f docker-compose.prod.yml --env-file .env.production restart
+   ```
+
+**Troubleshooting:**
+
+1. **Check Service Status:**
+   ```bash
+   sudo docker compose -f docker-compose.prod.yml ps
+   sudo docker compose -f docker-compose.prod.yml logs backend
+   sudo docker compose -f docker-compose.prod.yml logs frontend
+   ```
+
+2. **Check Caddy Status:**
+   ```bash
+   sudo systemctl status caddy
+   sudo journalctl -u caddy --no-pager | tail -50
+   ```
+
+3. **Database Migrations:**
+   - Migrations run automatically on backend startup
+   - Check logs: `sudo docker compose -f docker-compose.prod.yml logs backend | grep -i migration`
+
+4. **SSL Certificate Issues:**
+   ```bash
+   # Check Caddy logs for certificate errors
+   sudo journalctl -u caddy | grep -i certificate
+   
+   # Verify DNS is pointing correctly
+   dig +short zyndra.armonika.cloud
+   dig +short api.zyndra.armonika.cloud
+   ```
+
+5. **Port Conflicts:**
+   ```bash
+   # Check what's using ports 80, 443, 8080, 3000
+   sudo ss -tlnp | grep -E ':(80|443|8080|3000)'
+   ```
+
+**Important Files on Server:**
+- `/opt/zyndra/` - Application directory
+- `/opt/zyndra/.env.production` - Production environment variables (contains database password)
+- `/etc/caddy/Caddyfile` - Caddy configuration
+- `/opt/zyndra/docker-compose.prod.yml` - Docker Compose configuration
+- `/opt/zyndra/Caddyfile.prod` - Caddyfile template (source of truth)
+
+**Security Notes:**
+- ⚠️ **SSH Key:** Keep `ssh02` private key secure. Never commit it to Git.
+- ⚠️ **Database Password:** Stored in `.env.production` on server. Keep this file secure.
+- ⚠️ **Environment Variables:** `.env.production` contains sensitive data. Restrict access.
+
+**Backup SSH Key (if needed):**
+- The SSH private key is stored locally at: `/Users/intelifoxdz/Click2Deploy/ssh02`
+- Public key fingerprint: `AAAAC3NzaC1lZDI1NTE5AAAAIBC8DmzuIo3Zz9a2pkGCp4OG0vgR6NlOesy7ETGKNWTu`
+- To add a new SSH key, add the public key to `~/.ssh/authorized_keys` on the server
+
 ---
 
 ## 🎯 Current Status
