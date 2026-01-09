@@ -44,16 +44,26 @@ export const gitApi = {
   listRepositories: (provider: string = 'github') =>
     apiClient.get<GitRepository[]>(`/git/repos?provider=${provider}`),
 
-  connectGitHub: () => {
-    // Redirect to GitHub OAuth
-    const baseURL = getBaseURL()
-    window.location.href = `${baseURL}/v1/click-deploy/git/connect/github`
+  connectGitHub: async () => {
+    // Get OAuth URL via authenticated API call, then redirect
+    try {
+      const response = await apiClient.get<{ auth_url: string }>('/git/connect/github/url')
+      window.location.href = response.auth_url
+    } catch (error) {
+      console.error('Failed to get GitHub OAuth URL:', error)
+      throw error
+    }
   },
 
-  connectGitLab: () => {
-    // Redirect to GitLab OAuth
-    const baseURL = getBaseURL()
-    window.location.href = `${baseURL}/v1/click-deploy/git/connect/gitlab`
+  connectGitLab: async () => {
+    // Get OAuth URL via authenticated API call, then redirect
+    try {
+      const response = await apiClient.get<{ auth_url: string }>('/git/connect/gitlab/url')
+      window.location.href = response.auth_url
+    } catch (error) {
+      console.error('Failed to get GitLab OAuth URL:', error)
+      throw error
+    }
   },
 
   deleteConnection: (id: string) => apiClient.delete(`/git/connections/${id}`),

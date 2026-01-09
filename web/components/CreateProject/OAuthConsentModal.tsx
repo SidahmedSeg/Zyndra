@@ -20,21 +20,28 @@ export default function OAuthConsentModal({
 }: OAuthConsentModalProps) {
   const [isConnecting, setIsConnecting] = useState(false)
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     setIsConnecting(true)
-    // Store callback to handle OAuth success
-    if (typeof window !== 'undefined') {
-      // Store a flag to detect OAuth completion
-      sessionStorage.setItem('oauth_pending', 'true')
-      sessionStorage.setItem('oauth_provider', provider)
-      sessionStorage.setItem('oauth_from_page', window.location.pathname)
-      
-      // Start OAuth flow
-      if (provider === 'github') {
-        gitApi.connectGitHub()
-      } else {
-        gitApi.connectGitLab()
+    try {
+      // Store callback to handle OAuth success
+      if (typeof window !== 'undefined') {
+        // Store a flag to detect OAuth completion
+        sessionStorage.setItem('oauth_pending', 'true')
+        sessionStorage.setItem('oauth_provider', provider)
+        sessionStorage.setItem('oauth_from_page', window.location.pathname)
+        
+        // Start OAuth flow (now async)
+        if (provider === 'github') {
+          await gitApi.connectGitHub()
+        } else {
+          await gitApi.connectGitLab()
+        }
       }
+    } catch (error) {
+      console.error('OAuth connection failed:', error)
+      setIsConnecting(false)
+      // Show error to user
+      alert('Failed to connect. Please try again.')
     }
   }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/intelifox/click-deploy/internal/auth"
 	"github.com/intelifox/click-deploy/internal/config"
+	"github.com/intelifox/click-deploy/internal/domain"
 	"github.com/intelifox/click-deploy/internal/git"
 	"github.com/intelifox/click-deploy/internal/store"
 )
@@ -31,7 +32,11 @@ func NewGitHandler(store *store.DB, cfg *config.Config) *GitHandler {
 func RegisterGitRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	h := NewGitHandler(db, cfg)
 
-	// OAuth initiation
+	// OAuth initiation (returns JSON with URL for frontend redirect)
+	r.Get("/git/connect/github/url", h.GetGitHubOAuthURL)
+	r.Get("/git/connect/gitlab/url", h.GetGitLabOAuthURL)
+	
+	// OAuth initiation (direct redirect - kept for backward compatibility)
 	r.Get("/git/connect/github", h.ConnectGitHub)
 	r.Get("/git/connect/gitlab", h.ConnectGitLab)
 
@@ -47,7 +52,38 @@ func RegisterGitRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
 	r.Get("/git/repos/{owner}/{repo}/tree", h.GetRepositoryTree)
 }
 
-// ConnectGitHub initiates GitHub OAuth flow
+// GetGitHubOAuthURL returns the GitHub OAuth URL as JSON (for frontend to redirect)
+func (h *GitHandler) GetGitHubOAuthURL(w http.ResponseWriter, r *http.Request) {
+	orgID := auth.GetOrgID(r.Context())
+	userID := auth.GetUserID(r.Context())
+
+	if orgID == "" || userID == "" {
+		WriteError(w, domain.ErrUnauthorized.WithDetails("Organization ID or User ID not found in token"))
+		return
+	}
+
+	state, err := git.GenerateOAuthState("github", orgID, userID)
+	if err != nil {
+		WriteError(w, domain.ErrInternal.WithError(err))
+		return
+	}
+
+	// TODO: Store state in cache/DB for validation
+
+	oauthConfig := &git.OAuthConfig{
+		GitHubClientID:     h.config.GitHubClientID,
+		GitHubClientSecret: h.config.GitHubClientSecret,
+		GitHubRedirectURL:  h.config.GitHubRedirectURL,
+	}
+
+	authURL := git.GetGitHubOAuthURL(oauthConfig, state.StateToken)
+	
+	WriteJSON(w, http.StatusOK, map[string]string{
+		"auth_url": authURL,
+	})
+}
+
+// ConnectGitHub initiates GitHub OAuth flow (redirects immediately)
 func (h *GitHandler) ConnectGitHub(w http.ResponseWriter, r *http.Request) {
 	orgID := auth.GetOrgID(r.Context())
 	userID := auth.GetUserID(r.Context())
@@ -75,7 +111,39 @@ func (h *GitHandler) ConnectGitHub(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
-// ConnectGitLab initiates GitLab OAuth flow
+// GetGitLabOAuthURL returns the GitLab OAuth URL as JSON (for frontend to redirect)
+func (h *GitHandler) GetGitLabOAuthURL(w http.ResponseWriter, r *http.Request) {
+	orgID := auth.GetOrgID(r.Context())
+	userID := auth.GetUserID(r.Context())
+
+	if orgID == "" || userID == "" {
+		WriteError(w, domain.ErrUnauthorized.WithDetails("Organization ID or User ID not found in token"))
+		return
+	}
+
+	state, err := git.GenerateOAuthState("gitlab", orgID, userID)
+	if err != nil {
+		WriteError(w, domain.ErrInternal.WithError(err))
+		return
+	}
+
+	// TODO: Store state in cache/DB for validation
+
+	oauthConfig := &git.OAuthConfig{
+		GitLabClientID:     h.config.GitLabClientID,
+		GitLabClientSecret: h.config.GitLabClientSecret,
+		GitLabRedirectURL:  h.config.GitLabRedirectURL,
+		GitLabBaseURL:      h.config.GitLabBaseURL,
+	}
+
+	authURL := git.GetGitLabOAuthURL(oauthConfig, state.StateToken)
+	
+	WriteJSON(w, http.StatusOK, map[string]string{
+		"auth_url": authURL,
+	})
+}
+
+// ConnectGitLab initiates GitLab OAuth flow (redirects immediately)
 func (h *GitHandler) ConnectGitLab(w http.ResponseWriter, r *http.Request) {
 	orgID := auth.GetOrgID(r.Context())
 	userID := auth.GetUserID(r.Context())
