@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/api/client'
 import Header from '@/components/Header/Header'
 import CreateProjectDialog from '@/components/Header/CreateProjectDialog'
 import ProjectCard from '@/components/Projects/ProjectCard'
-import { Plus } from 'lucide-react'
+import { Plus, UserPlus, Settings } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -55,11 +55,39 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        onCreateProject={() => setCreateDialogOpen(true)}
-        onInvite={handleInvite}
-        onSettings={handleSettings}
-      />
+      <Header />
+      
+      {/* Gap section with gray background */}
+      <div className="bg-gray-50 border-b">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">Projects</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCreateDialogOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create</span>
+              </button>
+              <button
+                onClick={handleInvite}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-gray-700 bg-white border border-gray-300 text-sm rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Invite</span>
+              </button>
+              <button
+                onClick={handleSettings}
+                className="p-1.5 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                aria-label="Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <main className="container mx-auto px-6 py-8">
         {loading ? (
