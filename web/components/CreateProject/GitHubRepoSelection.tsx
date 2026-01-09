@@ -22,6 +22,20 @@ export default function GitHubRepoSelection({ projectId, onServiceCreated }: Git
 
   useEffect(() => {
     loadInstallations()
+
+    // Listen for GitHub App installation completion from popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      
+      if (event.data?.type === 'github-app-installed') {
+        console.log('GitHub App installed:', event.data)
+        // Reload installations after a short delay
+        setTimeout(() => loadInstallations(), 1500)
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [])
 
   const loadInstallations = async () => {
