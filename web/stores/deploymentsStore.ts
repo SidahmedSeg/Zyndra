@@ -9,6 +9,7 @@ interface DeploymentsState {
 
   // Actions
   triggerDeployment: (serviceId: string) => Promise<Deployment>
+  cancelDeployment: (deploymentId: string) => Promise<void>
   fetchDeployments: (serviceId: string) => Promise<void>
   fetchDeployment: (deploymentId: string) => Promise<Deployment>
   pollDeploymentStatus: (deploymentId: string, serviceId: string, onUpdate?: (deployment: Deployment) => void) => () => void
@@ -36,6 +37,17 @@ export const useDeploymentsStore = create<DeploymentsState>((set, get) => ({
       return deployment
     } catch (error: any) {
       set({ error: error.message || 'Failed to trigger deployment', loading: false })
+      throw error
+    }
+  },
+
+  cancelDeployment: async (deploymentId: string) => {
+    set({ loading: true, error: null })
+    try {
+      await deploymentsApi.cancel(deploymentId)
+      set({ loading: false })
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to cancel deployment', loading: false })
       throw error
     }
   },
