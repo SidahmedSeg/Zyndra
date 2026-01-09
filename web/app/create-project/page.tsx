@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, ChevronDown, ChevronRight, Github, Database, Container } from 'lucide-react'
-import Image from 'next/image'
 import { useProjectsStore } from '@/stores/projectsStore'
 import GitHubRepoSelection from '@/components/CreateProject/GitHubRepoSelection'
 import DatabaseSelection from '@/components/CreateProject/DatabaseSelection'
@@ -119,17 +118,16 @@ export default function CreateProjectPage() {
                 <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
                 <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
                 <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
-                <div className="w-6 h-6 bg-indigo-600 rounded-sm relative">
-                  {/* Small plus sign */}
-                  <svg 
-                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 text-indigo-600" 
-                    fill="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                </div>
+                <div className="w-6 h-6 bg-indigo-600 rounded-sm"></div>
               </div>
+              {/* Small plus sign positioned at bottom-right */}
+              <svg 
+                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 text-indigo-600" 
+                fill="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
             </div>
           </div>
 
