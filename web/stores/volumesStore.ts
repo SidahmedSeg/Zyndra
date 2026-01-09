@@ -22,9 +22,9 @@ export const useVolumesStore = create<VolumesState>((set) => ({
     set({ loading: true, error: null })
     try {
       const volumes = await volumesApi.listByProject(projectId)
-      set({ volumes, loading: false })
+      set({ volumes: Array.isArray(volumes) ? volumes : [], loading: false })
     } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch volumes', loading: false })
+      set({ error: error.message || 'Failed to fetch volumes', loading: false, volumes: [] })
     }
   },
 

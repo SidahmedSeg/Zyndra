@@ -29,6 +29,73 @@ func NewServiceHandler(store *store.DB, cfg *config.Config) *ServiceHandler {
 	}
 }
 
+// ServiceResponse represents a service in API responses
+type ServiceResponse struct {
+	ID                  string  `json:"id"`
+	ProjectID           string  `json:"project_id"`
+	GitSourceID         *string `json:"git_source_id,omitempty"`
+	Name                string  `json:"name"`
+	Type                string  `json:"type"`
+	Status              string  `json:"status"`
+	InstanceSize        string  `json:"instance_size"`
+	Port                int     `json:"port"`
+	OpenStackInstanceID *string `json:"openstack_instance_id,omitempty"`
+	OpenStackFIPID      *string `json:"openstack_fip_id,omitempty"`
+	OpenStackFIPAddress *string `json:"openstack_fip_address,omitempty"`
+	SecurityGroupID     *string `json:"security_group_id,omitempty"`
+	Subdomain           *string `json:"subdomain,omitempty"`
+	GeneratedURL        *string `json:"generated_url,omitempty"`
+	CurrentImageTag     *string `json:"current_image_tag,omitempty"`
+	CanvasX             int     `json:"canvas_x"`
+	CanvasY             int     `json:"canvas_y"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+}
+
+// toServiceResponse converts a store.Service to ServiceResponse
+func toServiceResponse(s *store.Service) ServiceResponse {
+	resp := ServiceResponse{
+		ID:           s.ID.String(),
+		ProjectID:    s.ProjectID.String(),
+		Name:         s.Name,
+		Type:         s.Type,
+		Status:       s.Status,
+		InstanceSize: s.InstanceSize,
+		Port:         s.Port,
+		CanvasX:      s.CanvasX,
+		CanvasY:      s.CanvasY,
+		CreatedAt:    s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    s.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	if s.GitSourceID.Valid {
+		resp.GitSourceID = &s.GitSourceID.String
+	}
+	if s.OpenStackInstanceID.Valid {
+		resp.OpenStackInstanceID = &s.OpenStackInstanceID.String
+	}
+	if s.OpenStackFIPID.Valid {
+		resp.OpenStackFIPID = &s.OpenStackFIPID.String
+	}
+	if s.OpenStackFIPAddress.Valid {
+		resp.OpenStackFIPAddress = &s.OpenStackFIPAddress.String
+	}
+	if s.SecurityGroupID.Valid {
+		resp.SecurityGroupID = &s.SecurityGroupID.String
+	}
+	if s.Subdomain.Valid {
+		resp.Subdomain = &s.Subdomain.String
+	}
+	if s.GeneratedURL.Valid {
+		resp.GeneratedURL = &s.GeneratedURL.String
+	}
+	if s.CurrentImageTag.Valid {
+		resp.CurrentImageTag = &s.CurrentImageTag.String
+	}
+
+	return resp
+}
+
 // ListServices handles GET /projects/:id/services
 func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	projectIDStr := chi.URLParam(r, "id")
@@ -63,7 +130,17 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, services)
+	// Convert store.Service to ServiceResponse
+	response := make([]ServiceResponse, 0)
+	if services != nil {
+		for _, s := range services {
+			if s != nil {
+				response = append(response, toServiceResponse(s))
+			}
+		}
+	}
+
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // CreateService handles POST /projects/:id/services

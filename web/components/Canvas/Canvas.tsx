@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import ReactFlow, {
   Node,
   Edge,
@@ -50,6 +50,11 @@ export default function Canvas({ projectId }: CanvasProps) {
   const { services, fetchServices, selectedService, setSelectedService } = useServicesStore()
   const { databases, fetchDatabases, selectedDatabase, setSelectedDatabase } = useDatabasesStore()
   const { volumes, fetchVolumes, selectedVolume, setSelectedVolume } = useVolumesStore()
+  
+  // Ensure arrays are always arrays (handle null/undefined)
+  const servicesList = useMemo(() => Array.isArray(services) ? services : [], [services])
+  const databasesList = useMemo(() => Array.isArray(databases) ? databases : [], [databases])
+  const volumesList = useMemo(() => Array.isArray(volumes) ? volumes : [], [volumes])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges)
@@ -83,8 +88,8 @@ export default function Canvas({ projectId }: CanvasProps) {
 
   // Convert services to nodes
   useEffect(() => {
-    if (services.length > 0) {
-      const serviceNodes: Node[] = services.map((service) => ({
+    if (servicesList.length > 0) {
+      const serviceNodes: Node[] = servicesList.map((service) => ({
         id: service.id,
         type: 'service',
         position: {
@@ -104,12 +109,12 @@ export default function Canvas({ projectId }: CanvasProps) {
         return newNodes.length > 0 ? [...currentNodes, ...newNodes] : currentNodes
       })
     }
-  }, [services, setNodes])
+  }, [servicesList, setNodes])
 
   // Convert databases to nodes
   useEffect(() => {
-    if (databases.length > 0) {
-      const dbNodes: Node[] = databases.map((db) => ({
+    if (databasesList.length > 0) {
+      const dbNodes: Node[] = databasesList.map((db) => ({
         id: `db:${db.id}`,
         type: 'database',
         position: {
@@ -132,7 +137,7 @@ export default function Canvas({ projectId }: CanvasProps) {
       setEdges((currentEdges) => {
         const existing = new Set(currentEdges.map((e) => e.id))
         const newEdges: Edge[] = []
-        for (const db of databases) {
+        for (const db of databasesList) {
           if (db.service_id) {
             const id = `edge:svc:${db.service_id}->db:${db.id}`
             if (!existing.has(id)) {
@@ -149,12 +154,12 @@ export default function Canvas({ projectId }: CanvasProps) {
         return newEdges.length > 0 ? [...currentEdges, ...newEdges] : currentEdges
       })
     }
-  }, [databases, setNodes, setEdges])
+  }, [databasesList, setNodes, setEdges])
 
   // Convert volumes to nodes
   useEffect(() => {
-    if (volumes.length > 0) {
-      const volNodes: Node[] = volumes.map((v) => ({
+    if (volumesList.length > 0) {
+      const volNodes: Node[] = volumesList.map((v) => ({
         id: `vol:${v.id}`,
         type: 'volume',
         position: {
@@ -177,7 +182,7 @@ export default function Canvas({ projectId }: CanvasProps) {
       setEdges((currentEdges) => {
         const existing = new Set(currentEdges.map((e) => e.id))
         const newEdges: Edge[] = []
-        for (const v of volumes) {
+        for (const v of volumesList) {
           if (v.attached_to_service_id) {
             const id = `edge:vol:${v.id}->svc:${v.attached_to_service_id}`
             if (!existing.has(id)) {
@@ -206,7 +211,7 @@ export default function Canvas({ projectId }: CanvasProps) {
         return newEdges.length > 0 ? [...currentEdges, ...newEdges] : currentEdges
       })
     }
-  }, [volumes, setNodes, setEdges])
+  }, [volumesList, setNodes, setEdges])
 
   const onConnect = useCallback(
     (params: Connection) => {

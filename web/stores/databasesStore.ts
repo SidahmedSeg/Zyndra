@@ -22,9 +22,9 @@ export const useDatabasesStore = create<DatabasesState>((set) => ({
     set({ loading: true, error: null })
     try {
       const databases = await databasesApi.listByProject(projectId)
-      set({ databases, loading: false })
+      set({ databases: Array.isArray(databases) ? databases : [], loading: false })
     } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch databases', loading: false })
+      set({ error: error.message || 'Failed to fetch databases', loading: false, databases: [] })
     }
   },
 

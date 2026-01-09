@@ -28,9 +28,9 @@ export const useServicesStore = create<ServicesState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const services = await servicesApi.listByProject(projectId)
-      set({ services, loading: false })
+      set({ services: Array.isArray(services) ? services : [], loading: false })
     } catch (error: any) {
-      set({ error: error.message || 'Failed to fetch services', loading: false })
+      set({ error: error.message || 'Failed to fetch services', loading: false, services: [] })
     }
   },
 
