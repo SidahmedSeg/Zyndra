@@ -25,7 +25,7 @@ export default function CanvasPage() {
   }
 
   return (
-    <div className="w-full h-screen">
+    <div className="w-full h-screen flex flex-col">
       <Canvas projectId={projectId} />
     </div>
   )

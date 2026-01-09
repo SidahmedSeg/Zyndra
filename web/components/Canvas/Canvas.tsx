@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReactFlow, {
   Node,
   Edge,
@@ -12,6 +12,7 @@ import ReactFlow, {
   useEdgesState,
   addEdge,
   Panel,
+  ReactFlowInstance,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -25,6 +26,8 @@ import VolumeNode from './nodes/VolumeNode'
 import ServiceDrawer from '../Drawer/ServiceDrawer'
 import DatabaseDrawer from '../Drawer/DatabaseDrawer'
 import VolumeDrawer from '../Drawer/VolumeDrawer'
+import ContextMenu from './ContextMenu'
+import CanvasHeader from './CanvasHeader'
 
 const nodeTypes = {
   service: ServiceNode,
@@ -47,9 +50,9 @@ export default function Canvas({ projectId }: CanvasProps) {
     setEdges: storeSetEdges,
   } = useCanvasStore()
 
-  const { services, fetchServices, selectedService, setSelectedService } = useServicesStore()
-  const { databases, fetchDatabases, selectedDatabase, setSelectedDatabase } = useDatabasesStore()
-  const { volumes, fetchVolumes, selectedVolume, setSelectedVolume } = useVolumesStore()
+  const { services, fetchServices, selectedService, setSelectedService, createService } = useServicesStore()
+  const { databases, fetchDatabases, selectedDatabase, setSelectedDatabase, createDatabase } = useDatabasesStore()
+  const { volumes, fetchVolumes, selectedVolume, setSelectedVolume, createVolume } = useVolumesStore()
   
   // Ensure arrays are always arrays (handle null/undefined)
   const servicesList = useMemo(() => Array.isArray(services) ? services : [], [services])
@@ -58,6 +61,10 @@ export default function Canvas({ projectId }: CanvasProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges)
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
 
   // Sync with store
   useEffect(() => {
@@ -238,25 +245,91 @@ export default function Canvas({ projectId }: CanvasProps) {
     [onEdgesChange, storeOnEdgesChange]
   )
 
+  // Handle right-click on pane
+  const onPaneContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault()
+      if (reactFlowInstance) {
+        const point = reactFlowInstance.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        })
+        setContextMenu({ x: event.clientX, y: event.clientY })
+      }
+    },
+    [reactFlowInstance]
+  )
+
+  // Handle adding a node from context menu
+  const handleAddNode = useCallback(
+    async (type: 'service' | 'database' | 'volume') => {
+      if (!contextMenu || !reactFlowInstance) return
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: contextMenu.x,
+        y: contextMenu.y,
+      })
+
+      try {
+        if (type === 'service') {
+          const service = await createService(projectId, {
+            name: 'New Service',
+            type: 'app',
+            instance_size: 'small',
+            port: 8080,
+            canvas_x: position.x,
+            canvas_y: position.y,
+          })
+          setSelectedService(service)
+        } else if (type === 'database') {
+          const database = await createDatabase(projectId, {
+            engine: 'postgresql',
+            size: 'small',
+          })
+          setSelectedDatabase(database)
+        } else if (type === 'volume') {
+          const volume = await createVolume(projectId, {
+            name: 'New Volume',
+            size_mb: 1024,
+          })
+          setSelectedVolume(volume)
+        }
+      } catch (error) {
+        console.error('Failed to create node:', error)
+      }
+    },
+    [contextMenu, reactFlowInstance, projectId, createService, createDatabase, createVolume, setSelectedService, setSelectedDatabase, setSelectedVolume]
+  )
+
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
-        nodeTypes={nodeTypes}
-        fitView
-      >
-        <Controls />
-        <Background />
-        <MiniMap />
-        <Panel position="top-left" className="bg-white p-2 rounded shadow">
-          <h2 className="text-lg font-semibold">Canvas</h2>
-          <p className="text-sm text-gray-600">Drag nodes to reposition</p>
-        </Panel>
-      </ReactFlow>
+    <div className="w-full h-screen flex flex-col">
+      <CanvasHeader projectId={projectId} />
+      <div className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          onConnect={onConnect}
+          onInit={setReactFlowInstance}
+          onPaneContextMenu={onPaneContextMenu}
+          nodeTypes={nodeTypes}
+          fitView
+        >
+          <Controls />
+          <Background />
+          <MiniMap />
+        </ReactFlow>
+        
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onAddNode={handleAddNode}
+          />
+        )}
+      </div>
 
       <ServiceDrawer
         service={selectedService}
