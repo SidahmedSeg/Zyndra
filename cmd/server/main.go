@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -79,7 +80,7 @@ func main() {
 				if err := recover(); err != nil {
 					log.Printf("Panic recovered: %v\n", err)
 					// Log stack trace
-					debug.PrintStack()
+					log.Printf("Stack trace:\n%s", string(runtime.Stack(nil, false)))
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				}
 			}()
