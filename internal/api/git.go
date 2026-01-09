@@ -62,6 +62,12 @@ func (h *GitHandler) GetGitHubOAuthURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if GitHub OAuth is configured
+	if h.config.GitHubClientID == "" || h.config.GitHubClientSecret == "" {
+		WriteError(w, domain.NewInvalidInputError("GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables."))
+		return
+	}
+
 	state, err := git.GenerateOAuthState("github", orgID, userID)
 	if err != nil {
 		WriteError(w, domain.ErrInternal.WithError(err))
@@ -118,6 +124,12 @@ func (h *GitHandler) GetGitLabOAuthURL(w http.ResponseWriter, r *http.Request) {
 
 	if orgID == "" || userID == "" {
 		WriteError(w, domain.ErrUnauthorized.WithDetails("Organization ID or User ID not found in token"))
+		return
+	}
+
+	// Check if GitLab OAuth is configured
+	if h.config.GitLabClientID == "" || h.config.GitLabClientSecret == "" {
+		WriteError(w, domain.NewInvalidInputError("GitLab OAuth is not configured. Please set GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET environment variables."))
 		return
 	}
 

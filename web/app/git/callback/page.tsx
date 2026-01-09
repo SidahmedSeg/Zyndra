@@ -32,17 +32,25 @@ function GitCallbackContent() {
               sessionStorage.removeItem('oauth_pending')
               sessionStorage.removeItem('oauth_provider')
 
-              // Redirect after a short delay
-              setTimeout(() => {
-                // Check if we're on create-project page, stay there, otherwise go to home
-                const fromPage = sessionStorage.getItem('oauth_from_page')
-                if (fromPage) {
-                  sessionStorage.removeItem('oauth_from_page')
-                  router.push(fromPage)
-                } else {
-                  router.push('/')
-                }
-              }, 2000)
+              // Check if we're in a popup window
+              if (window.opener) {
+                // Send message to parent window
+                window.opener.postMessage({ type: 'oauth-success' }, window.location.origin)
+                // Close popup
+                window.close()
+              } else {
+                // Redirect after a short delay (not in popup)
+                setTimeout(() => {
+                  // Check if we're on create-project page, stay there, otherwise go to home
+                  const fromPage = sessionStorage.getItem('oauth_from_page')
+                  if (fromPage) {
+                    sessionStorage.removeItem('oauth_from_page')
+                    router.push(fromPage)
+                  } else {
+                    router.push('/')
+                  }
+                }, 2000)
+              }
             } else {
               // Keep checking
               setTimeout(checkConnection, 1000)
@@ -60,7 +68,14 @@ function GitCallbackContent() {
         // No pending OAuth, might be direct callback
         setStatus('success')
         setMessage('Connection completed!')
-        setTimeout(() => router.push('/'), 2000)
+        
+        // Check if we're in a popup window
+        if (window.opener) {
+          window.opener.postMessage({ type: 'oauth-success' }, window.location.origin)
+          window.close()
+        } else {
+          setTimeout(() => router.push('/'), 2000)
+        }
       }
     }
 

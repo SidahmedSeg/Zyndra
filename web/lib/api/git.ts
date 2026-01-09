@@ -44,22 +44,48 @@ export const gitApi = {
   listRepositories: (provider: string = 'github') =>
     apiClient.get<GitRepository[]>(`/git/repos?provider=${provider}`),
 
-  connectGitHub: async () => {
-    // Get OAuth URL via authenticated API call, then redirect
+  connectGitHub: async (): Promise<Window | null> => {
+    // Get OAuth URL via authenticated API call, then open in popup
     try {
       const response = await apiClient.get<{ auth_url: string }>('/git/connect/github/url')
-      window.location.href = response.auth_url
+      
+      // Open OAuth in a popup window
+      const width = 600
+      const height = 700
+      const left = (window.screen.width - width) / 2
+      const top = (window.screen.height - height) / 2
+      
+      const popup = window.open(
+        response.auth_url,
+        'github-oauth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+      )
+      
+      return popup
     } catch (error) {
       console.error('Failed to get GitHub OAuth URL:', error)
       throw error
     }
   },
 
-  connectGitLab: async () => {
-    // Get OAuth URL via authenticated API call, then redirect
+  connectGitLab: async (): Promise<Window | null> => {
+    // Get OAuth URL via authenticated API call, then open in popup
     try {
       const response = await apiClient.get<{ auth_url: string }>('/git/connect/gitlab/url')
-      window.location.href = response.auth_url
+      
+      // Open OAuth in a popup window
+      const width = 600
+      const height = 700
+      const left = (window.screen.width - width) / 2
+      const top = (window.screen.height - height) / 2
+      
+      const popup = window.open(
+        response.auth_url,
+        'gitlab-oauth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+      )
+      
+      return popup
     } catch (error) {
       console.error('Failed to get GitLab OAuth URL:', error)
       throw error

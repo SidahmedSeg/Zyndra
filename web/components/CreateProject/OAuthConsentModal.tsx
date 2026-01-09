@@ -30,18 +30,67 @@ export default function OAuthConsentModal({
         sessionStorage.setItem('oauth_provider', provider)
         sessionStorage.setItem('oauth_from_page', window.location.pathname)
         
-        // Start OAuth flow (now async)
+        // Open OAuth in popup window
+        let popup: Window | null = null
         if (provider === 'github') {
-          await gitApi.connectGitHub()
+          popup = await gitApi.connectGitHub()
         } else {
-          await gitApi.connectGitLab()
+          popup = await gitApi.connectGitLab()
         }
+
+        if (!popup) {
+          throw new Error('Failed to open OAuth popup. Please check your popup blocker settings.')
+        }
+
+        // Poll for popup to close (OAuth complete)
+        const checkPopup = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkPopup)
+            setIsConnecting(false)
+            
+            // Check if OAuth was successful by checking sessionStorage
+            const oauthPending = sessionStorage.getItem('oauth_pending')
+            if (oauthPending === 'true') {
+              // Still pending, might have been cancelled
+              sessionStorage.removeItem('oauth_pending')
+              sessionStorage.removeItem('oauth_provider')
+              sessionStorage.removeItem('oauth_from_page')
+            } else {
+              // Success - callback page should have cleared the flag
+              onSuccess()
+              onOpenChange(false)
+            }
+          }
+        }, 500)
+
+        // Also listen for message from popup (if callback page sends it)
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data === 'oauth-success' || event.data?.type === 'oauth-success') {
+            clearInterval(checkPopup)
+            setIsConnecting(false)
+            onSuccess()
+            onOpenChange(false)
+            window.removeEventListener('message', handleMessage)
+          }
+        }
+        window.addEventListener('message', handleMessage)
+
+        // Cleanup after 10 minutes
+        setTimeout(() => {
+          clearInterval(checkPopup)
+          window.removeEventListener('message', handleMessage)
+          if (!popup?.closed) {
+            popup?.close()
+          }
+          setIsConnecting(false)
+        }, 10 * 60 * 1000)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('OAuth connection failed:', error)
       setIsConnecting(false)
       // Show error to user
-      alert('Failed to connect. Please try again.')
+      const errorMessage = error?.message || error?.details || 'Failed to connect. Please try again.'
+      alert(errorMessage)
     }
   }
 
