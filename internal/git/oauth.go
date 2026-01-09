@@ -54,10 +54,16 @@ func GenerateOAuthState(provider, orgID, userID string) (*OAuthState, error) {
 
 // GetGitHubOAuthURL generates the GitHub OAuth authorization URL
 func GetGitHubOAuthURL(cfg *OAuthConfig, state string) string {
+	// Ensure redirect URL doesn't have trailing slash (GitHub is strict about exact match)
+	redirectURL := cfg.GitHubRedirectURL
+	if len(redirectURL) > 0 && redirectURL[len(redirectURL)-1] == '/' {
+		redirectURL = redirectURL[:len(redirectURL)-1]
+	}
+	
 	oauthConfig := &oauth2.Config{
 		ClientID:     cfg.GitHubClientID,
 		ClientSecret: cfg.GitHubClientSecret,
-		RedirectURL:  cfg.GitHubRedirectURL,
+		RedirectURL:  redirectURL,
 		Scopes:       []string{"repo", "read:user", "read:org"},
 		Endpoint:     github.Endpoint,
 	}
