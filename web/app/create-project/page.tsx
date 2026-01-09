@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, User, LayoutGrid, Github, Database, FileText, Package, Code, HardDrive, Plus, ChevronRight } from 'lucide-react'
 import { useProjectsStore } from '@/stores/projectsStore'
