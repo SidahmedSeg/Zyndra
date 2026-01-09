@@ -225,6 +225,39 @@ func ValidateCreateServiceRequest(req *CreateServiceRequest) *ValidationErrors {
 		}
 	}
 
+	// Validate git_source (optional, but if provided all fields must be valid)
+	if req.GitSource != nil {
+		if req.GitSource.Provider == "" {
+			errors.Errors = append(errors.Errors, ValidationError{
+				Field:   "git_source.provider",
+				Message: "Provider is required",
+			})
+		} else if req.GitSource.Provider != "github" && req.GitSource.Provider != "gitlab" {
+			errors.Errors = append(errors.Errors, ValidationError{
+				Field:   "git_source.provider",
+				Message: "Provider must be 'github' or 'gitlab'",
+			})
+		}
+		if req.GitSource.RepoOwner == "" {
+			errors.Errors = append(errors.Errors, ValidationError{
+				Field:   "git_source.repo_owner",
+				Message: "Repository owner is required",
+			})
+		}
+		if req.GitSource.RepoName == "" {
+			errors.Errors = append(errors.Errors, ValidationError{
+				Field:   "git_source.repo_name",
+				Message: "Repository name is required",
+			})
+		}
+		if req.GitSource.Branch == "" {
+			errors.Errors = append(errors.Errors, ValidationError{
+				Field:   "git_source.branch",
+				Message: "Branch is required",
+			})
+		}
+	}
+
 	return errors
 }
 

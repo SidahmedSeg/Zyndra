@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Server, Database, HardDrive } from 'lucide-react'
+import { Github, Database, HardDrive } from 'lucide-react'
 
 interface ContextMenuProps {
   x: number
   y: number
   onClose: () => void
-  onAddNode: (type: 'service' | 'database' | 'volume') => void
+  onAddNode: (type: 'github-repo' | 'database' | 'volume') => void
 }
 
 export default function ContextMenu({ x, y, onClose, onAddNode }: ContextMenuProps) {
@@ -35,7 +35,7 @@ export default function ContextMenu({ x, y, onClose, onAddNode }: ContextMenuPro
     }
   }, [onClose])
 
-  const handleAdd = (type: 'service' | 'database' | 'volume') => {
+  const handleAdd = (type: 'github-repo' | 'database' | 'volume') => {
     onAddNode(type)
     onClose()
   }
@@ -47,25 +47,25 @@ export default function ContextMenu({ x, y, onClose, onAddNode }: ContextMenuPro
       style={{ left: `${x}px`, top: `${y}px` }}
     >
       <button
-        onClick={() => handleAdd('service')}
+        onClick={() => handleAdd('github-repo')}
         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
       >
-        <Server className="w-4 h-4" />
-        <span>Add Service</span>
+        <Github className="w-4 h-4" />
+        <span>Github repo</span>
       </button>
       <button
         onClick={() => handleAdd('database')}
         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
       >
         <Database className="w-4 h-4" />
-        <span>Add Database</span>
+        <span>Database</span>
       </button>
       <button
         onClick={() => handleAdd('volume')}
         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
       >
         <HardDrive className="w-4 h-4" />
-        <span>Add Volume</span>
+        <span>Volume</span>
       </button>
     </div>
   )

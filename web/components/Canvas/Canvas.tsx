@@ -28,6 +28,8 @@ import DatabaseDrawer from '../Drawer/DatabaseDrawer'
 import VolumeDrawer from '../Drawer/VolumeDrawer'
 import ContextMenu from './ContextMenu'
 import CanvasHeader from './CanvasHeader'
+import RepoSelectionModal from './RepoSelectionModal'
+import type { GitRepository } from '@/lib/api/git'
 
 const nodeTypes = {
   service: ServiceNode,
@@ -65,6 +67,8 @@ export default function Canvas({ projectId }: CanvasProps) {
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
+  const [repoModalOpen, setRepoModalOpen] = useState(false)
+  const [pendingNodePosition, setPendingNodePosition] = useState<{ x: number; y: number } | null>(null)
 
   // Sync with store
   useEffect(() => {
@@ -262,7 +266,7 @@ export default function Canvas({ projectId }: CanvasProps) {
 
   // Handle adding a node from context menu
   const handleAddNode = useCallback(
-    async (type: 'service' | 'database' | 'volume') => {
+    async (type: 'github-repo' | 'database' | 'volume') => {
       if (!contextMenu || !reactFlowInstance) return
 
       const position = reactFlowInstance.screenToFlowPosition({
@@ -270,18 +274,15 @@ export default function Canvas({ projectId }: CanvasProps) {
         y: contextMenu.y,
       })
 
+      if (type === 'github-repo') {
+        // Open repo selection modal
+        setPendingNodePosition(position)
+        setRepoModalOpen(true)
+        return
+      }
+
       try {
-        if (type === 'service') {
-          const service = await createService(projectId, {
-            name: 'New Service',
-            type: 'app',
-            instance_size: 'small',
-            port: 8080,
-            canvas_x: position.x,
-            canvas_y: position.y,
-          })
-          setSelectedService(service)
-        } else if (type === 'database') {
+        if (type === 'database') {
           const database = await createDatabase(projectId, {
             engine: 'postgresql',
             size: 'small',
@@ -298,7 +299,42 @@ export default function Canvas({ projectId }: CanvasProps) {
         console.error('Failed to create node:', error)
       }
     },
-    [contextMenu, reactFlowInstance, projectId, createService, createDatabase, createVolume, setSelectedService, setSelectedDatabase, setSelectedVolume]
+    [contextMenu, reactFlowInstance, projectId, createDatabase, createVolume, setSelectedDatabase, setSelectedVolume]
+  )
+
+  // Handle repo selection from modal
+  const handleRepoSelect = useCallback(
+    async (repo: GitRepository) => {
+      if (!pendingNodePosition) return
+
+      try {
+        // Use owner from repo or parse from full_name
+        const owner = repo.owner || repo.full_name.split('/')[0]
+        const repoName = repo.name
+        
+        const service = await createService(projectId, {
+          name: repoName,
+          type: 'app',
+          instance_size: 'small',
+          port: 8080,
+          canvas_x: Math.round(pendingNodePosition.x),
+          canvas_y: Math.round(pendingNodePosition.y),
+          git_source: {
+            provider: 'github',
+            repo_owner: owner,
+            repo_name: repoName,
+            branch: repo.default_branch || 'main',
+          },
+        })
+        setSelectedService(service)
+        setPendingNodePosition(null)
+        // Refresh services to show the new one
+        fetchServices(projectId)
+      } catch (error) {
+        console.error('Failed to create service from repo:', error)
+      }
+    },
+    [pendingNodePosition, projectId, createService, setSelectedService, fetchServices]
   )
 
   return (
@@ -330,6 +366,13 @@ export default function Canvas({ projectId }: CanvasProps) {
           />
         )}
       </div>
+
+      <RepoSelectionModal
+        open={repoModalOpen}
+        onOpenChange={setRepoModalOpen}
+        onSelectRepo={handleRepoSelect}
+        projectId={projectId}
+      />
 
       <ServiceDrawer
         service={selectedService}

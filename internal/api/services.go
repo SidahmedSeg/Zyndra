@@ -213,6 +213,7 @@ func (h *ServiceHandler) CreateService(w http.ResponseWriter, r *http.Request) {
 		service.CanvasY = *req.CanvasY
 	}
 
+	// Handle git source ID if provided
 	if req.GitSourceID != nil {
 		gitSourceUUID, err := uuid.Parse(*req.GitSourceID)
 		if err == nil {
@@ -220,12 +221,58 @@ func (h *ServiceHandler) CreateService(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Create service first
 	if err := h.Store.CreateService(r.Context(), service); err != nil {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
 
-	WriteCreated(w, service)
+	// If git source info provided, create git source after service creation
+	if req.GitSource != nil {
+		// Get git connection for this org and provider
+		connection, err := h.Store.GetGitConnectionByOrgAndProvider(r.Context(), orgID, req.GitSource.Provider)
+		if err != nil {
+			WriteError(w, domain.ErrDatabase.WithError(err))
+			return
+		}
+		if connection == nil {
+			WriteError(w, domain.NewInvalidInputError(fmt.Sprintf("No %s connection found. Please connect your %s account first.", req.GitSource.Provider, req.GitSource.Provider)))
+			return
+		}
+
+		// Create git source
+		gitSource := &store.GitSource{
+			ServiceID:       service.ID,
+			GitConnectionID: connection.ID,
+			Provider:        req.GitSource.Provider,
+			RepoOwner:       SanitizeString(req.GitSource.RepoOwner),
+			RepoName:        SanitizeString(req.GitSource.RepoName),
+			Branch:          SanitizeString(req.GitSource.Branch),
+		}
+
+		if req.GitSource.RootDir != nil {
+			gitSource.RootDir = sql.NullString{String: SanitizeString(*req.GitSource.RootDir), Valid: true}
+		}
+
+		if err := h.Store.CreateGitSource(r.Context(), gitSource); err != nil {
+			WriteError(w, domain.ErrDatabase.WithError(err))
+			return
+		}
+
+		// Update service with git source ID
+		service.GitSourceID = sql.NullString{String: gitSource.ID.String(), Valid: true}
+		// Note: UpdateService doesn't update git_source_id, but that's okay
+		// The git_source table has the service_id foreign key, so the relationship is established
+	}
+
+	// Fetch created service to return full details
+	createdService, err := h.Store.GetService(r.Context(), service.ID)
+	if err != nil {
+		WriteError(w, domain.ErrDatabase.WithError(err))
+		return
+	}
+
+	WriteCreated(w, toServiceResponse(createdService))
 }
 
 // GetService handles GET /services/:id

@@ -22,11 +22,20 @@ export interface Service {
   updated_at: string
 }
 
+export interface GitSourceInfo {
+  provider: string
+  repo_owner: string
+  repo_name: string
+  branch: string
+  root_dir?: string
+}
+
 export interface CreateServiceRequest {
   name: string
   type: string
   instance_size: string
   port?: number
+  git_source?: GitSourceInfo
   canvas_x?: number
   canvas_y?: number
 }
