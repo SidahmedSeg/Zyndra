@@ -1,13 +1,18 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjectsStore } from '@/stores/projectsStore'
 import { apiClient } from '@/lib/api/client'
+import Header from '@/components/Header/Header'
+import CreateProjectDialog from '@/components/Header/CreateProjectDialog'
+import ProjectCard from '@/components/Projects/ProjectCard'
+import { Plus } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
-  const { projects, fetchProjects, selectedProject, loading } = useProjectsStore()
+  const { projects, fetchProjects, createProject, loading } = useProjectsStore()
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   useEffect(() => {
     // Check if user is authenticated
@@ -26,26 +31,71 @@ export default function Home() {
     })
   }, [fetchProjects, router])
 
-  useEffect(() => {
-    if (selectedProject) {
-      router.push(`/canvas/${selectedProject.id}`)
-    } else if (projects.length > 0) {
-      router.push(`/canvas/${projects[0].id}`)
-    }
-  }, [selectedProject, projects, router])
+  const handleCreateProject = async (name: string, description?: string) => {
+    const project = await createProject({ name, description })
+    router.push(`/canvas/${project.id}`)
+  }
+
+  const handleProjectClick = (projectId: string) => {
+    router.push(`/canvas/${projectId}`)
+  }
+
+  const handleInvite = () => {
+    // TODO: Implement invite functionality
+    console.log('Invite clicked')
+  }
+
+  const handleSettings = () => {
+    // TODO: Implement settings functionality
+    console.log('Settings clicked')
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold mb-4">Click to Deploy</h1>
-        <p className="text-lg mb-4">No-code deployment platform</p>
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        onCreateProject={() => setCreateDialogOpen(true)}
+        onInvite={handleInvite}
+        onSettings={handleSettings}
+      />
+      
+      <main className="container mx-auto px-6 py-8">
         {loading ? (
-          <p className="text-gray-500">Loading projects...</p>
+          <div className="flex items-center justify-center py-24">
+            <p className="text-gray-500">Loading projects...</p>
+          </div>
         ) : projects.length === 0 ? (
-          <p className="text-gray-500">No projects found. Create your first project to get started.</p>
-        ) : null}
-      </div>
-    </main>
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-6">
+              <Plus className="w-12 h-12 text-gray-400" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">No projects yet</h2>
+            <p className="text-gray-500 mb-6">Create your first project to get started</p>
+            <button
+              onClick={() => setCreateDialogOpen(true)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Create Project
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClick={() => handleProjectClick(project.id)}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <CreateProjectDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreateProject={handleCreateProject}
+      />
+    </div>
   )
 }
 
