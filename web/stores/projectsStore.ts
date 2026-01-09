@@ -21,7 +21,7 @@ interface ProjectsState {
 export const useProjectsStore = create<ProjectsState>()(
   persist(
     (set, get) => ({
-      projects: [],
+      projects: [] as Project[],
       selectedProject: null,
       loading: false,
       error: null,
@@ -30,9 +30,9 @@ export const useProjectsStore = create<ProjectsState>()(
         set({ loading: true, error: null })
         try {
           const projects = await projectsApi.list()
-          set({ projects, loading: false })
+          set({ projects: Array.isArray(projects) ? projects : [], loading: false })
         } catch (error: any) {
-          set({ error: error.message || 'Failed to fetch projects', loading: false })
+          set({ error: error.message || 'Failed to fetch projects', loading: false, projects: [] })
         }
       },
 

@@ -13,6 +13,9 @@ export default function Home() {
   const router = useRouter()
   const { projects, fetchProjects, createProject, loading } = useProjectsStore()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  
+  // Ensure projects is always an array (handle hydration from localStorage)
+  const projectsList = Array.isArray(projects) ? projects : []
 
   useEffect(() => {
     // Check if user is authenticated
@@ -63,7 +66,7 @@ export default function Home() {
           <div className="flex items-center justify-center py-24">
             <p className="text-gray-500">Loading projects...</p>
           </div>
-        ) : projects.length === 0 ? (
+        ) : projectsList.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-6">
               <Plus className="w-12 h-12 text-gray-400" />
@@ -79,7 +82,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
+            {projectsList.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
