@@ -64,7 +64,7 @@ export default function Home() {
             <h2 className="text-lg font-semibold text-gray-800">Projects</h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCreateDialogOpen(true)}
+                onClick={() => router.push('/create-project')}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
