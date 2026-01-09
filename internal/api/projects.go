@@ -193,12 +193,25 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		counter++
 	}
 
+	// Determine OpenStack tenant ID
+	tenantID := ""
+	if req.OpenStackTenantID != nil && *req.OpenStackTenantID != "" {
+		tenantID = *req.OpenStackTenantID
+	} else if h.config.UseMockInfra {
+		// Auto-generate mock tenant ID for testing
+		tenantID = "mock-tenant-" + uuid.New().String()
+	} else {
+		// If not using mock and no tenant ID provided, return error
+		WriteError(w, domain.NewInvalidInputError("openstack_tenant_id is required when not using mock infrastructure"))
+		return
+	}
+
 	// Create project
 	project := &store.Project{
 		CasdoorOrgID:      orgID,
 		Name:              req.Name,
 		Slug:              slug,
-		OpenStackTenantID: req.OpenStackTenantID,
+		OpenStackTenantID: tenantID,
 		AutoDeploy:        true,
 	}
 

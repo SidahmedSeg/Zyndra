@@ -145,9 +145,11 @@ func ValidateCreateProjectRequest(req *CreateProjectRequest) *ValidationErrors {
 		}
 	}
 
-	// Validate OpenStack tenant ID
-	if tenantErrs := ValidateString(req.OpenStackTenantID, "openstack_tenant_id", true, 1, 255); tenantErrs.HasErrors() {
-		errors.Errors = append(errors.Errors, tenantErrs.Errors...)
+	// Validate OpenStack tenant ID (optional)
+	if req.OpenStackTenantID != nil {
+		if tenantErrs := ValidateString(*req.OpenStackTenantID, "openstack_tenant_id", false, 1, 255); tenantErrs.HasErrors() {
+			errors.Errors = append(errors.Errors, tenantErrs.Errors...)
+		}
 	}
 
 	// Validate default region (optional)

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/intelifox/click-deploy/internal/config"
 	"github.com/intelifox/click-deploy/internal/store"
 	"github.com/intelifox/click-deploy/internal/testutil"
 )
@@ -17,7 +18,11 @@ func TestProjectHandler_CreateProject(t *testing.T) {
 	testutil.RunMigrations(t, db)
 
 	dbStore := &store.DB{DB: db}
-	handler := NewProjectHandler(dbStore, nil)
+	// Create config with mock infra enabled for testing
+	mockConfig := &config.Config{
+		UseMockInfra: true,
+	}
+	handler := NewProjectHandler(dbStore, mockConfig)
 
 	tests := []struct {
 		name           string
@@ -26,11 +31,21 @@ func TestProjectHandler_CreateProject(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name: "valid project creation",
+			name: "valid project creation with tenant ID",
 			requestBody: CreateProjectRequest{
 				Name:              "Test Project",
 				Description:       stringPtr("Test Description"),
-				OpenStackTenantID: "test-tenant-123",
+				OpenStackTenantID: stringPtr("test-tenant-123"),
+			},
+			expectedStatus: http.StatusCreated,
+			expectError:    false,
+		},
+		{
+			name: "valid project creation without tenant ID (mock mode)",
+			requestBody: CreateProjectRequest{
+				Name:              "Test Project No Tenant",
+				Description:       stringPtr("Test Description"),
+				OpenStackTenantID: nil,
 			},
 			expectedStatus: http.StatusCreated,
 			expectError:    false,
@@ -39,7 +54,7 @@ func TestProjectHandler_CreateProject(t *testing.T) {
 			name: "missing name",
 			requestBody: CreateProjectRequest{
 				Name:              "",
-				OpenStackTenantID: "test-tenant-123",
+				OpenStackTenantID: stringPtr("test-tenant-123"),
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectError:    true,
@@ -48,7 +63,7 @@ func TestProjectHandler_CreateProject(t *testing.T) {
 			name: "name too long",
 			requestBody: CreateProjectRequest{
 				Name:              string(make([]byte, 300)), // 300 characters
-				OpenStackTenantID: "test-tenant-123",
+				OpenStackTenantID: stringPtr("test-tenant-123"),
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectError:    true,
@@ -87,7 +102,10 @@ func TestProjectHandler_GetProject(t *testing.T) {
 	testutil.RunMigrations(t, db)
 
 	dbStore := &store.DB{DB: db}
-	handler := NewProjectHandler(dbStore, nil)
+	mockConfig := &config.Config{
+		UseMockInfra: true,
+	}
+	handler := NewProjectHandler(dbStore, mockConfig)
 
 	// Create a test project
 	orgID := "test-org-456"
@@ -152,7 +170,10 @@ func TestProjectHandler_ListProjects(t *testing.T) {
 	testutil.RunMigrations(t, db)
 
 	dbStore := &store.DB{DB: db}
-	handler := NewProjectHandler(dbStore, nil)
+	mockConfig := &config.Config{
+		UseMockInfra: true,
+	}
+	handler := NewProjectHandler(dbStore, mockConfig)
 
 	orgID := "test-org-456"
 	ctx := testutil.MockAuthContext(context.Background(), "test-user-123", orgID)

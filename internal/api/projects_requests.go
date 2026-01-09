@@ -4,7 +4,7 @@ package api
 type CreateProjectRequest struct {
 	Name              string  `json:"name" validate:"required,min=1,max=255"`
 	Description       *string `json:"description,omitempty" validate:"omitempty,max=1000"`
-	OpenStackTenantID string  `json:"openstack_tenant_id" validate:"required"`
+	OpenStackTenantID *string `json:"openstack_tenant_id,omitempty" validate:"omitempty,min=1,max=255"`
 	DefaultRegion     *string `json:"default_region,omitempty" validate:"omitempty,max=100"`
 	AutoDeploy        *bool   `json:"auto_deploy,omitempty"`
 }
