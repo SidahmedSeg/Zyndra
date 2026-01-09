@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -34,14 +36,27 @@ type OAuthState struct {
 	StateToken string
 }
 
-// GenerateOAuthState generates a secure OAuth state token
+// GenerateOAuthState generates a secure OAuth state token with orgID and userID encoded
 func GenerateOAuthState(provider, orgID, userID string) (*OAuthState, error) {
-	bytes := make([]byte, 32)
+	// Generate random token for CSRF protection
+	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
 		return nil, err
 	}
+	randomToken := base64.URLEncoding.EncodeToString(bytes)
 
-	stateToken := base64.URLEncoding.EncodeToString(bytes)
+	// Encode orgID and userID in state token: base64(json({orgID, userID, token}))
+	stateData := map[string]string{
+		"orgID":   orgID,
+		"userID":  userID,
+		"token":   randomToken,
+		"expires": fmt.Sprintf("%d", time.Now().Add(10*time.Minute).Unix()),
+	}
+	stateJSON, err := json.Marshal(stateData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal state: %w", err)
+	}
+	stateToken := base64.URLEncoding.EncodeToString(stateJSON)
 
 	return &OAuthState{
 		Provider:   provider,
@@ -50,6 +65,36 @@ func GenerateOAuthState(provider, orgID, userID string) (*OAuthState, error) {
 		ExpiresAt:  time.Now().Add(10 * time.Minute),
 		StateToken: stateToken,
 	}, nil
+}
+
+// ParseOAuthState decodes the state token to extract orgID and userID
+func ParseOAuthState(stateToken string) (orgID, userID string, err error) {
+	// Decode base64
+	stateJSON, err := base64.URLEncoding.DecodeString(stateToken)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode state: %w", err)
+	}
+
+	// Parse JSON
+	var stateData map[string]string
+	if err := json.Unmarshal(stateJSON, &stateData); err != nil {
+		return "", "", fmt.Errorf("failed to parse state: %w", err)
+	}
+
+	orgID = stateData["orgID"]
+	userID = stateData["userID"]
+	
+	// Validate expiration
+	if expStr, ok := stateData["expires"]; ok {
+		var expTime int64
+		if _, err := fmt.Sscanf(expStr, "%d", &expTime); err == nil {
+			if time.Now().Unix() > expTime {
+				return "", "", fmt.Errorf("state token expired")
+			}
+		}
+	}
+
+	return orgID, userID, nil
 }
 
 // GetGitHubOAuthURL generates the GitHub OAuth authorization URL

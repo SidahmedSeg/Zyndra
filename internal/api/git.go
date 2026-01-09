@@ -186,16 +186,23 @@ func (h *GitHandler) ConnectGitLab(w http.ResponseWriter, r *http.Request) {
 
 // CallbackGitHub handles GitHub OAuth callback
 func (h *GitHandler) CallbackGitHub(w http.ResponseWriter, r *http.Request) {
-	orgID := auth.GetOrgID(r.Context())
-	userID := auth.GetUserID(r.Context())
-
-	code, _, err := git.ParseOAuthCallback(r)
+	code, state, err := git.ParseOAuthCallback(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Validate state token (currently ignored)
+	// Parse state token to get orgID and userID (callback is public, no auth context)
+	orgID, userID, err := git.ParseOAuthState(state)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid or expired state token: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if orgID == "" || userID == "" {
+		http.Error(w, "Missing orgID or userID in state token", http.StatusBadRequest)
+		return
+	}
 
 	oauthConfig := &git.OAuthConfig{
 		GitHubClientID:     h.config.GitHubClientID,
