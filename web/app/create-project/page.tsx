@@ -146,8 +146,8 @@ export default function CreateProjectPage() {
     }}>
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="px-6">
+          <div className="flex items-center justify-between h-14">
             {/* Left side - Logo and navigation */}
             <div className="flex items-center gap-4">
               <a href="/" className="flex-shrink-0">
@@ -168,12 +168,12 @@ export default function CreateProjectPage() {
             </div>
 
             {/* Right side - Tabs and user */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 h-full">
               {/* Navigation tabs */}
-              <nav className="flex items-center">
+              <nav className="flex items-center h-full">
                 <button
                   onClick={() => setActiveTab('architecture')}
-                  className={`px-4 py-2 text-sm transition-colors relative ${
+                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
                     activeTab === 'architecture' 
                       ? 'text-gray-900 font-medium' 
                       : 'text-gray-500 hover:text-gray-700'
@@ -186,7 +186,7 @@ export default function CreateProjectPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('logs')}
-                  className={`px-4 py-2 text-sm transition-colors relative ${
+                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
                     activeTab === 'logs' 
                       ? 'text-gray-900 font-medium' 
                       : 'text-gray-500 hover:text-gray-700'
@@ -199,7 +199,7 @@ export default function CreateProjectPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`px-4 py-2 text-sm transition-colors relative ${
+                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
                     activeTab === 'settings' 
                       ? 'text-gray-900 font-medium' 
                       : 'text-gray-500 hover:text-gray-700'
