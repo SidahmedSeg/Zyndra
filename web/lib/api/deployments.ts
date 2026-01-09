@@ -65,8 +65,13 @@ export const deploymentsApi = {
     apiClient.get<Deployment>(`/deployments/${deploymentId}`),
 
   // Get deployment logs
-  getLogs: (deploymentId: string, limit?: number) =>
-    apiClient.get<DeploymentLog[]>(`/deployments/${deploymentId}/logs${limit ? `?limit=${limit}` : ''}`),
+  getLogs: (deploymentId: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+    if (offset) params.append('offset', offset.toString())
+    const queryString = params.toString()
+    return apiClient.get<DeploymentLog[]>(`/deployments/${deploymentId}/logs${queryString ? `?${queryString}` : ''}`)
+  },
 
   // Cancel a deployment
   cancel: (deploymentId: string) =>
