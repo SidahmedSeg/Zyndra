@@ -11,12 +11,10 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   addEdge,
-  Panel,
   ReactFlowInstance,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-import { useCanvasStore } from '@/stores/canvasStore'
 import { useServicesStore } from '@/stores/servicesStore'
 import { useDatabasesStore } from '@/stores/databasesStore'
 import { useVolumesStore } from '@/stores/volumesStore'
@@ -43,16 +41,6 @@ interface CanvasProps {
 }
 
 export default function Canvas({ projectId }: CanvasProps) {
-  const {
-    nodes: storeNodes,
-    edges: storeEdges,
-    onNodesChange: storeOnNodesChange,
-    onEdgesChange: storeOnEdgesChange,
-    onConnect: storeOnConnect,
-    setNodes: storeSetNodes,
-    setEdges: storeSetEdges,
-  } = useCanvasStore()
-
   const { services, fetchServices, selectedService, setSelectedService, createService } = useServicesStore()
   const { databases, fetchDatabases, selectedDatabase, setSelectedDatabase, createDatabase } = useDatabasesStore()
   const { volumes, fetchVolumes, selectedVolume, setSelectedVolume, createVolume } = useVolumesStore()
@@ -62,32 +50,15 @@ export default function Canvas({ projectId }: CanvasProps) {
   const databasesList = useMemo(() => Array.isArray(databases) ? databases : [], [databases])
   const volumesList = useMemo(() => Array.isArray(volumes) ? volumes : [], [volumes])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges)
+  // Use ReactFlow's built-in state management (no external store sync)
+  const [nodes, setNodes, onNodesChange] = useNodesState([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState([])
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
   const [repoModalOpen, setRepoModalOpen] = useState(false)
   const [pendingNodePosition, setPendingNodePosition] = useState<{ x: number; y: number } | null>(null)
-
-  // Sync with store
-  useEffect(() => {
-    setNodes(storeNodes)
-  }, [storeNodes, setNodes])
-
-  useEffect(() => {
-    setEdges(storeEdges)
-  }, [storeEdges, setEdges])
-
-  // Update store when nodes/edges change
-  useEffect(() => {
-    storeSetNodes(nodes)
-  }, [nodes, storeSetNodes])
-
-  useEffect(() => {
-    storeSetEdges(edges)
-  }, [edges, storeSetEdges])
 
   // Load services and create nodes
   useEffect(() => {
@@ -227,27 +198,9 @@ export default function Canvas({ projectId }: CanvasProps) {
 
   const onConnect = useCallback(
     (params: Connection) => {
-      const newEdges = addEdge(params, edges)
-      setEdges(newEdges)
-      storeOnConnect(params)
+      setEdges((eds) => addEdge(params, eds))
     },
-    [edges, setEdges, storeOnConnect]
-  )
-
-  const handleNodesChange = useCallback(
-    (changes: any) => {
-      onNodesChange(changes)
-      storeOnNodesChange(changes)
-    },
-    [onNodesChange, storeOnNodesChange]
-  )
-
-  const handleEdgesChange = useCallback(
-    (changes: any) => {
-      onEdgesChange(changes)
-      storeOnEdgesChange(changes)
-    },
-    [onEdgesChange, storeOnEdgesChange]
+    [setEdges]
   )
 
   // Handle right-click on pane
@@ -353,8 +306,8 @@ export default function Canvas({ projectId }: CanvasProps) {
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onInit={setReactFlowInstance}
           onPaneContextMenu={onPaneContextMenu}
