@@ -3,7 +3,6 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
 import type { Service } from '@/lib/api/services'
-import { useServicesStore } from '@/stores/servicesStore'
 import { deploymentsApi, type Deployment, getStatusDisplay } from '@/lib/api/deployments'
 
 interface ServiceNodeData {
@@ -12,7 +11,6 @@ interface ServiceNodeData {
 }
 
 function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
-  const { setSelectedService } = useServicesStore()
   const { service } = data
   
   const [deployment, setDeployment] = useState<Deployment | null>(null)
@@ -58,9 +56,7 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
     }
   }, [service.id, deployment?.started_at, deployment?.status])
 
-  const handleClick = () => {
-    setSelectedService(data.service)
-  }
+  // Click is handled by ReactFlow's onNodeClick in Canvas component
 
   // Determine display status based on deployment
   const isDeploying = deployment && !['success', 'failed', 'cancelled'].includes(deployment.status)
@@ -93,7 +89,6 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
       className={`rounded-2xl min-w-[280px] max-w-[320px] cursor-pointer bg-white shadow-md overflow-hidden border ${
         selected ? 'border-gray-400' : 'border-gray-200'
       }`}
-      onClick={handleClick}
     >
       <Handle type="target" position={Position.Top} className="!bg-gray-400 !w-2 !h-2" />
       
