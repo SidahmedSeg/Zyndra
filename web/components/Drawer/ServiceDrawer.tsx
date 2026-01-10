@@ -1,15 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import Drawer from './Drawer'
-import Tabs from './Tabs'
+import { useEffect, useState } from 'react'
+import { X, Check, MoreVertical, ChevronDown, ChevronUp, Link2, Trash2, ExternalLink, Copy } from 'lucide-react'
 import { Service } from '@/lib/api/services'
 import { useServicesStore } from '@/stores/servicesStore'
 import { useDeploymentsStore } from '@/stores/deploymentsStore'
 import type { Deployment } from '@/lib/api/deployments'
-import LogStream from '@/components/Logs/LogStream'
-import { rollbackApi, type RollbackCandidate } from '@/lib/api/rollback'
-import MetricsTab from '@/components/Metrics/MetricsTab'
 
 interface ServiceDrawerProps {
   service: Service | null
@@ -17,14 +13,14 @@ interface ServiceDrawerProps {
   onClose: () => void
 }
 
-export default function ServiceDrawer({
-  service,
-  isOpen,
-  onClose,
-}: ServiceDrawerProps) {
-  const { updateService } = useServicesStore()
-  const { deployments, fetchDeployments, triggerDeployment, cancelDeployment } = useDeploymentsStore()
-  const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null)
+type TabType = 'deployment' | 'variables' | 'metrics' | 'settings'
+type SettingsSubTab = 'source' | 'network' | 'build' | 'deploy' | 'danger'
+
+export default function ServiceDrawer({ service, isOpen, onClose }: ServiceDrawerProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('deployment')
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('source')
+  const { deployments, fetchDeployments } = useDeploymentsStore()
+  
   const serviceId = service?.id || null
   const serviceDeployments = serviceId ? deployments[serviceId] || [] : []
   const latestDeployment = serviceDeployments[0] || null
@@ -35,378 +31,562 @@ export default function ServiceDrawer({
     }
   }, [isOpen, serviceId, fetchDeployments])
 
-  useEffect(() => {
-    if (!selectedDeploymentId && latestDeployment) {
-      setSelectedDeploymentId(latestDeployment.id)
-    }
-  }, [latestDeployment, selectedDeploymentId])
-
   if (!service) return null
 
-  const tabs = [
-    {
-      id: 'source',
-      label: 'Source',
-      content: <SourceTab service={service} />,
-    },
-    {
-      id: 'instance',
-      label: 'Instance',
-      content: <InstanceTab service={service} onUpdate={updateService} />,
-    },
-    {
-      id: 'variables',
-      label: 'Variables',
-      content: <VariablesTab service={service} />,
-    },
-    {
-      id: 'domains',
-      label: 'Domains',
-      content: <DomainsTab service={service} />,
-    },
-    {
-      id: 'deploy',
-      label: 'Deploy',
-      content: (
-        <DeployTab
-          service={service}
-          deployments={serviceDeployments}
-          selectedDeploymentId={selectedDeploymentId}
-          onSelectDeployment={setSelectedDeploymentId}
-          onTrigger={async () => {
-            const d = await triggerDeployment(service.id, { triggered_by: 'manual' })
-            setSelectedDeploymentId(d.id)
-            await fetchDeployments(service.id)
-          }}
-          onCancel={async (deploymentId) => {
-            await cancelDeployment(deploymentId)
-            await fetchDeployments(service.id)
-          }}
-        />
-      ),
-    },
-    {
-      id: 'logs',
-      label: 'Logs',
-      content: <LogsTab deploymentId={selectedDeploymentId} />,
-    },
-    {
-      id: 'metrics',
-      label: 'Metrics',
-      content: <MetricsTab resourceId={service.id} resourceType="service" />,
-    },
+  const tabs: { id: TabType; label: string }[] = [
+    { id: 'deployment', label: 'Deployment' },
+    { id: 'variables', label: 'Variables' },
+    { id: 'metrics', label: 'Metrics' },
+    { id: 'settings', label: 'Settings' },
   ]
 
   return (
-    <Drawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title={service.name}
-      width="900px"
-    >
-      <Tabs tabs={tabs} />
-    </Drawer>
-  )
-}
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 bg-black/20 transition-opacity duration-300 z-40 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
 
-// Tab Components
-function SourceTab({ service }: { service: Service }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Git Source
-        </label>
-        <p className="text-sm text-gray-500">
-          {service.git_source_id ? 'Connected' : 'Not connected'}
-        </p>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Service Type
-        </label>
-        <p className="text-sm text-gray-500 capitalize">{service.type}</p>
-      </div>
-    </div>
-  )
-}
-
-function InstanceTab({
-  service,
-  onUpdate,
-}: {
-  service: Service
-  onUpdate: (id: string, data: any) => Promise<void>
-}) {
-  const [instanceSize, setInstanceSize] = useState(service.instance_size)
-  const [port, setPort] = useState(service.port?.toString() || '')
-
-  const handleSave = async () => {
-    await onUpdate(service.id, {
-      instance_size: instanceSize,
-      port: port ? parseInt(port) : undefined,
-    })
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Instance Size
-        </label>
-        <select
-          value={instanceSize}
-          onChange={(e) => setInstanceSize(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="small">Small</option>
-          <option value="medium">Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Port
-        </label>
-        <input
-          type="number"
-          value={port}
-          onChange={(e) => setPort(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="8080"
-        />
-      </div>
-      <button
-        onClick={handleSave}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full w-[520px] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-out ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
       >
-        Save Changes
-      </button>
-    </div>
-  )
-}
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <img src="/github-icon.svg" alt="" className="w-8 h-8" />
+            <h2 className="text-xl font-semibold text-gray-900">{service.name}</h2>
+            <button
+              onClick={onClose}
+              className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+        </div>
 
-function VariablesTab({ service }: { service: Service }) {
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-500">Environment variables will be listed here</p>
-    </div>
-  )
-}
+        {/* Tabs */}
+        <div className="px-6 border-b border-gray-100">
+          <nav className="flex gap-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-gray-900 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-function DomainsTab({ service }: { service: Service }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Generated URL
-        </label>
-        <p className="text-sm text-blue-600">{service.generated_url || 'Not available'}</p>
+        {/* Content */}
+        <div className="overflow-y-auto h-[calc(100%-140px)]">
+          {activeTab === 'deployment' && (
+            <DeploymentTab service={service} deployment={latestDeployment} />
+          )}
+          {activeTab === 'variables' && (
+            <VariablesTab service={service} />
+          )}
+          {activeTab === 'metrics' && (
+            <MetricsTab service={service} />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsTab 
+              service={service} 
+              subTab={settingsSubTab} 
+              onSubTabChange={setSettingsSubTab} 
+            />
+          )}
+        </div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Custom Domain
-        </label>
-        <input
-          type="text"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="example.com"
-        />
-      </div>
-    </div>
+    </>
   )
 }
 
-function DeployTab({
-  service,
-  deployments,
-  selectedDeploymentId,
-  onSelectDeployment,
-  onTrigger,
-  onCancel,
-}: {
-  service: Service
-  deployments: Deployment[]
-  selectedDeploymentId: string | null
-  onSelectDeployment: (id: string) => void
-  onTrigger: () => Promise<void>
-  onCancel: (deploymentId: string) => Promise<void>
-}) {
-  const [rollbackCandidates, setRollbackCandidates] = useState<RollbackCandidate[]>([])
-  const [loadingRollback, setLoadingRollback] = useState(false)
-  const [rollingBack, setRollingBack] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchCandidates = async () => {
-      try {
-        const candidates = await rollbackApi.getRollbackCandidates(service.id)
-        setRollbackCandidates(candidates || [])
-      } catch (error) {
-        console.error('Failed to fetch rollback candidates:', error)
-      }
-    }
-    fetchCandidates()
-  }, [service.id, deployments])
-
-  const selected = useMemo(
-    () => deployments.find((d) => d.id === selectedDeploymentId) || null,
-    [deployments, selectedDeploymentId]
-  )
-
-  const handleRollback = async (deploymentId: string) => {
-    setRollingBack(deploymentId)
-    try {
-      await rollbackApi.rollbackToDeployment(service.id, deploymentId)
-      // Refresh deployments after rollback
-      await onTrigger()
-    } catch (error) {
-      console.error('Failed to rollback:', error)
-      alert('Failed to rollback deployment')
-    } finally {
-      setRollingBack(null)
-    }
-  }
+// Deployment Tab
+function DeploymentTab({ service, deployment }: { service: Service; deployment: Deployment | null }) {
+  const [expanded, setExpanded] = useState(true)
+  const displayUrl = service.generated_url || 'bcd.ila26.com'
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
+    <div className="p-6 space-y-4">
+      {/* URL */}
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+        </div>
+        <span>{displayUrl}</span>
+      </div>
+
+      {/* Latest Deployment */}
+      {deployment ? (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="p-4 bg-white flex items-center gap-3">
+            <img src="/github-icon.svg" alt="" className="w-5 h-5 opacity-60" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900 truncate">
+                  {deployment.commit_message || 'fix: Remove unused isWithinInterval import'}
+                </span>
+                <span className="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
+                  Active
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {deployment.created_at ? new Date(deployment.created_at).toLocaleString() : '02 hours ago'} via Github
+              </div>
+            </div>
+            <button className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              View logs
+            </button>
+            <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+              <MoreVertical className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-lg p-4 text-center text-gray-500 text-sm">
+          No deployments yet
+        </div>
+      )}
+
+      {/* Successfully deployed */}
+      <div className="border border-emerald-200 bg-emerald-50 rounded-lg overflow-hidden">
         <button
-          onClick={onTrigger}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full p-4 flex items-center gap-3 text-left"
         >
-          Trigger Deployment
+          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+            <Check className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-sm font-medium text-emerald-700">Successfully deployed</span>
+          <div className="ml-auto">
+            {expanded ? (
+              <ChevronUp className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-emerald-600" />
+            )}
+          </div>
         </button>
-        {selected && (selected.status === 'queued' || selected.status === 'building' || selected.status === 'pushing') && (
-          <button
-            onClick={() => onCancel(selected.id)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-          >
-            Cancel
-          </button>
+        {expanded && (
+          <div className="px-4 pb-4 text-sm text-emerald-700">
+            Your service is live and running.
+          </div>
         )}
       </div>
+    </div>
+  )
+}
 
-      {selected && <DeploymentProgress deployment={selected} />}
+// Variables Tab
+function VariablesTab({ service }: { service: Service }) {
+  const [variables, setVariables] = useState([
+    { key: 'VITE_API_URL', value: '******', isSecret: true }
+  ])
+  const [isAdding, setIsAdding] = useState(false)
+  const [newKey, setNewKey] = useState('')
+  const [newValue, setNewValue] = useState('')
 
-      {rollbackCandidates.length > 0 && (
-        <div className="border border-gray-200 rounded-md p-4 bg-yellow-50">
-          <div className="text-sm font-medium mb-2">Rollback</div>
-          <div className="text-xs text-gray-600 mb-3">
-            Rollback to a previous successful deployment:
+  const handleAddVariable = () => {
+    if (newKey && newValue) {
+      setVariables([...variables, { key: newKey, value: newValue, isSecret: false }])
+      setNewKey('')
+      setNewValue('')
+      setIsAdding(false)
+    }
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-sm text-gray-600">{variables.length} Service variable</span>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <span className="font-mono text-xs">{'{}'}</span>
+            <span>Editor</span>
+          </button>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            + New variable
+          </button>
+        </div>
+      </div>
+
+      {/* Add new variable form */}
+      {isAdding && (
+        <div className="flex items-center gap-2 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <input
+            type="text"
+            placeholder="VARIABLE_NAME"
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          <input
+            type="text"
+            placeholder="VALUE or ${{REF}}"
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          <button
+            onClick={handleAddVariable}
+            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsAdding(false)}
+            className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Variables list */}
+      <div className="space-y-2">
+        {variables.map((variable, index) => (
+          <div key={index} className="flex items-center gap-3 py-3 border-b border-gray-100">
+            <span className="font-mono text-xs text-gray-400">{'{}'}</span>
+            <span className="text-sm font-medium text-gray-900">{variable.key}</span>
+            <span className="text-sm text-gray-500 ml-auto">{variable.isSecret ? '*******' : variable.value}</span>
+            <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+              <MoreVertical className="w-4 h-4 text-gray-400" />
+            </button>
           </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {rollbackCandidates.slice(0, 5).map((candidate) => (
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Metrics Tab
+function MetricsTab({ service }: { service: Service }) {
+  return (
+    <div className="p-6 space-y-6">
+      {/* CPU Chart */}
+      <div className="border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-gray-900">CPU</h3>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-indigo-600" />
+            <span>Sum</span>
+          </div>
+        </div>
+        <div className="h-40 flex items-end justify-between gap-1 border-l border-b border-gray-200 pl-8 pb-6 relative">
+          {/* Y-axis labels */}
+          <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-400">
+            <span>1.2 vCPU</span>
+            <span>1.0 vCPU</span>
+            <span>0.8 vCPU</span>
+            <span>0.6 vCPU</span>
+            <span>0.4 vCPU</span>
+            <span>0.2 vCPU</span>
+            <span>0.0 vCPU</span>
+          </div>
+          {/* Chart bars (mock data) */}
+          <div className="flex-1 flex items-end justify-around h-full">
+            {[10, 15, 8, 25, 45, 60, 55].map((height, i) => (
               <div
-                key={candidate.id}
-                className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate">
-                    {candidate.commit_message || 'No commit message'}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {candidate.image_tag} • {new Date(candidate.created_at).toLocaleString()}
-                  </div>
+                key={i}
+                className="w-8 bg-indigo-600 rounded-t"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+          {/* X-axis labels */}
+          <div className="absolute bottom-0 left-8 right-0 flex justify-around text-xs text-gray-400 -mb-5">
+            <span>JAN 4</span>
+            <span>JAN 5</span>
+            <span>JAN 6</span>
+            <span>JAN 7</span>
+            <span>JAN 8</span>
+            <span>JAN 9</span>
+            <span>JAN 10</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Memory Chart */}
+      <div className="border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-gray-900">MEMORY</h3>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-indigo-600" />
+            <span>Sum</span>
+          </div>
+        </div>
+        <div className="h-40 flex items-end justify-between gap-1 border-l border-b border-gray-200 pl-8 pb-6 relative">
+          {/* Y-axis labels */}
+          <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-400">
+            <span>1.2 GB</span>
+            <span>1 GB</span>
+            <span>800 MB</span>
+            <span>600 MB</span>
+            <span>400 MB</span>
+            <span>200 MB</span>
+            <span>100 MB</span>
+          </div>
+          {/* Chart bars (mock data) */}
+          <div className="flex-1 flex items-end justify-around h-full">
+            {[8, 12, 15, 35, 50, 70, 65].map((height, i) => (
+              <div
+                key={i}
+                className="w-8 bg-indigo-600 rounded-t"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+          {/* X-axis labels */}
+          <div className="absolute bottom-0 left-8 right-0 flex justify-around text-xs text-gray-400 -mb-5">
+            <span>JAN 4</span>
+            <span>JAN 5</span>
+            <span>JAN 6</span>
+            <span>JAN 7</span>
+            <span>JAN 8</span>
+            <span>JAN 9</span>
+            <span>JAN 10</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Settings Tab
+function SettingsTab({ 
+  service, 
+  subTab, 
+  onSubTabChange 
+}: { 
+  service: Service
+  subTab: SettingsSubTab
+  onSubTabChange: (tab: SettingsSubTab) => void 
+}) {
+  const subTabs: { id: SettingsSubTab; label: string }[] = [
+    { id: 'source', label: 'Source' },
+    { id: 'network', label: 'Network' },
+    { id: 'build', label: 'Build' },
+    { id: 'deploy', label: 'Deploy' },
+    { id: 'danger', label: 'Danger zone' },
+  ]
+
+  return (
+    <div className="p-6">
+      {/* Sub tabs */}
+      <div className="flex gap-4 mb-6 border-b border-gray-100 pb-3">
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onSubTabChange(tab.id)}
+            className={`text-sm font-medium transition-colors ${
+              subTab === tab.id
+                ? 'text-indigo-600 border-b-2 border-indigo-600 pb-3 -mb-3'
+                : 'text-gray-500 hover:text-gray-700'
+            } ${tab.id === 'danger' ? 'text-red-500 hover:text-red-600' : ''}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'source' && <SourceSettings service={service} />}
+      {subTab === 'network' && <NetworkSettings service={service} />}
+      {subTab === 'build' && <BuildSettings />}
+      {subTab === 'deploy' && <DeploySettings />}
+      {subTab === 'danger' && <DangerSettings service={service} />}
+    </div>
+  )
+}
+
+function SourceSettings({ service }: { service: Service }) {
+  return (
+    <div className="space-y-6">
+      {/* Source code section */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+            <span className="text-xs">{'</>'}</span>
+          </div>
+          <h3 className="font-medium text-gray-900">Source code</h3>
+        </div>
+
+        {/* Source repository */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Source repository</label>
+          <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+            <img src="/github-icon.svg" alt="" className="w-5 h-5" />
+            <span className="text-sm text-gray-900 flex-1">Sidahmedseg/{service.name}</span>
+            <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+              <Link2 className="w-4 h-4 text-gray-400" />
+            </button>
+            <button className="px-3 py-1 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        {/* Root directory */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Root directory</label>
+          <p className="text-xs text-gray-500 mb-2">Select the source we&apos;ll use to fetch your code. <a href="#" className="text-indigo-600 hover:underline">Docs</a></p>
+          <input
+            type="text"
+            defaultValue="/Backend"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {/* Branch */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Branch synced with production</label>
+          <p className="text-xs text-gray-500 mb-2">Updates to this GitHub branch will be automatically deployed to this environment.</p>
+          <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+            <span className="text-sm">↳</span>
+            <span className="text-sm text-gray-900 flex-1">Main branch</span>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <button className="px-3 py-1 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NetworkSettings({ service }: { service: Service }) {
+  const domains = [
+    { url: `${service.name}-production.online.zyndra.app`, port: 8080, isPrimary: true },
+    { url: 'ila26bcd.com', port: 8080, status: 'Setup complete' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+            <span className="text-xs">🌐</span>
+          </div>
+          <h3 className="font-medium text-gray-900">Network</h3>
+        </div>
+
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-gray-900 mb-1">Public Networking</h4>
+          <p className="text-xs text-gray-500 mb-3">Your application is available over HTTP at the following domains:</p>
+
+          <div className="space-y-2">
+            {domains.map((domain, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <span className="text-xs">🌐</span>
                 </div>
-                <button
-                  onClick={() => handleRollback(candidate.id)}
-                  disabled={rollingBack === candidate.id}
-                  className="ml-2 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {rollingBack === candidate.id ? 'Rolling back...' : 'Rollback'}
+                <div className="flex-1">
+                  <div className="text-sm text-gray-900">{domain.url}</div>
+                  <div className="text-xs text-gray-500">Port : {domain.port}</div>
+                </div>
+                {domain.status && (
+                  <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded">
+                    {domain.status}
+                  </span>
+                )}
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <Copy className="w-4 h-4 text-gray-400" />
+                </button>
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <ExternalLink className="w-4 h-4 text-gray-400" />
+                </button>
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <Trash2 className="w-4 h-4 text-gray-400" />
                 </button>
               </div>
             ))}
           </div>
-        </div>
-      )}
 
+          <button className="mt-3 flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+            + Custom domain
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BuildSettings() {
+  return (
+    <div className="space-y-6">
       <div>
-        <div className="text-sm font-medium mb-2">History</div>
-        {deployments.length === 0 ? (
-          <div className="text-sm text-gray-500">No deployments yet.</div>
-        ) : (
-          <div className="border border-gray-200 rounded-md divide-y">
-            {deployments.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => onSelectDeployment(d.id)}
-                className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
-                  d.id === selectedDeploymentId ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">{d.status}</div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(d.created_at).toLocaleString()}
-                  </div>
-                </div>
-                {d.image_tag && (
-                  <div className="text-xs text-gray-600 truncate">{d.image_tag}</div>
-                )}
-                {d.error_message && (
-                  <div className="text-xs text-red-600 truncate">{d.error_message}</div>
-                )}
-              </button>
-            ))}
+        <h3 className="font-medium text-gray-900 mb-4">Build settings</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Build command</label>
+            <input
+              type="text"
+              placeholder="npm run build"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function DeploymentProgress({ deployment }: { deployment: Deployment }) {
-  const steps = [
-    { id: 'queued', label: 'Queued' },
-    { id: 'building', label: 'Build' },
-    { id: 'pushing', label: 'Push' },
-    { id: 'deploying', label: 'Deploy' },
-    { id: 'success', label: 'Done' },
-  ]
-
-  const statusIndex = steps.findIndex((s) => s.id === deployment.status)
-  const isFailed = deployment.status === 'failed'
-  const isCancelled = deployment.status === 'cancelled'
-
-  return (
-    <div className="border border-gray-200 rounded-md p-3">
-      <div className="text-sm font-medium mb-2">Progress</div>
-      <div className="flex items-center gap-2 flex-wrap">
-        {steps.map((s, idx) => {
-          const done = statusIndex >= idx && statusIndex !== -1
-          return (
-            <div key={s.id} className="flex items-center gap-2">
-              <div
-                className={`px-2 py-1 rounded text-xs ${
-                  done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {s.label}
-              </div>
-              {idx !== steps.length - 1 && <div className="text-gray-300">→</div>}
-            </div>
-          )
-        })}
-      </div>
-      {(isFailed || isCancelled) && (
-        <div className="mt-2 text-sm text-red-600">
-          {isCancelled ? 'Cancelled' : `Failed: ${deployment.error_message || 'Unknown error'}`}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start command</label>
+            <input
+              type="text"
+              placeholder="npm start"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-function LogsTab({ deploymentId }: { deploymentId: string | null }) {
+function DeploySettings() {
   return (
-    <div className="space-y-4">
-      {!deploymentId ? (
-        <p className="text-sm text-gray-500">Select a deployment to view logs.</p>
-      ) : (
-        <LogStream deploymentId={deploymentId} height="520px" />
-      )}
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-medium text-gray-900 mb-4">Deploy settings</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div>
+              <div className="text-sm font-medium text-gray-900">Auto deploy</div>
+              <div className="text-xs text-gray-500">Automatically deploy when pushing to the main branch</div>
+            </div>
+            <button className="relative w-11 h-6 bg-indigo-600 rounded-full transition-colors">
+              <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
+function DangerSettings({ service }: { service: Service }) {
+  return (
+    <div className="space-y-6">
+      <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+        <h3 className="font-medium text-red-900 mb-2">Delete service</h3>
+        <p className="text-sm text-red-700 mb-4">
+          This will permanently delete the service and all associated data. This action cannot be undone.
+        </p>
+        <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+          Delete {service.name}
+        </button>
+      </div>
+    </div>
+  )
+}
