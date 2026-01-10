@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { Node, Edge, Connection, addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow'
 
 interface CanvasState {
@@ -23,74 +22,67 @@ interface CanvasState {
 const initialNodes: Node[] = []
 const initialEdges: Edge[] = []
 
-export const useCanvasStore = create<CanvasState>()(
-  persist(
-    (set, get) => ({
-      nodes: initialNodes,
-      edges: initialEdges,
-      selectedNodeId: null,
+export const useCanvasStore = create<CanvasState>()((set, get) => ({
+  nodes: initialNodes,
+  edges: initialEdges,
+  selectedNodeId: null,
 
-      setNodes: (nodes: Node[]) => {
-        set({ nodes })
-      },
+  setNodes: (nodes: Node[]) => {
+    set({ nodes })
+  },
 
-      setEdges: (edges: Edge[]) => {
-        set({ edges })
-      },
+  setEdges: (edges: Edge[]) => {
+    set({ edges })
+  },
 
-      onNodesChange: (changes: any) => {
-        set({
-          nodes: applyNodeChanges(changes, get().nodes),
-        })
-      },
+  onNodesChange: (changes: any) => {
+    set({
+      nodes: applyNodeChanges(changes, get().nodes),
+    })
+  },
 
-      onEdgesChange: (changes: any) => {
-        set({
-          edges: applyEdgeChanges(changes, get().edges),
-        })
-      },
+  onEdgesChange: (changes: any) => {
+    set({
+      edges: applyEdgeChanges(changes, get().edges),
+    })
+  },
 
-      onConnect: (connection: Connection) => {
-        set({
-          edges: addEdge(connection, get().edges),
-        })
-      },
+  onConnect: (connection: Connection) => {
+    set({
+      edges: addEdge(connection, get().edges),
+    })
+  },
 
-      addNode: (node: Node) => {
-        set((state) => ({
-          nodes: [...state.nodes, node],
-        }))
-      },
+  addNode: (node: Node) => {
+    set((state) => ({
+      nodes: [...state.nodes, node],
+    }))
+  },
 
-      updateNode: (id: string, data: Partial<Node>) => {
-        set((state) => ({
-          nodes: state.nodes.map((node) =>
-            node.id === id ? { ...node, ...data } : node
-          ),
-        }))
-      },
+  updateNode: (id: string, data: Partial<Node>) => {
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === id ? { ...node, ...data } : node
+      ),
+    }))
+  },
 
-      deleteNode: (id: string) => {
-        set((state) => ({
-          nodes: state.nodes.filter((node) => node.id !== id),
-          edges: state.edges.filter(
-            (edge) => edge.source !== id && edge.target !== id
-          ),
-          selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
-        }))
-      },
+  deleteNode: (id: string) => {
+    set((state) => ({
+      nodes: state.nodes.filter((node) => node.id !== id),
+      edges: state.edges.filter(
+        (edge) => edge.source !== id && edge.target !== id
+      ),
+      selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
+    }))
+  },
 
-      setSelectedNodeId: (id: string | null) => {
-        set({ selectedNodeId: id })
-      },
+  setSelectedNodeId: (id: string | null) => {
+    set({ selectedNodeId: id })
+  },
 
-      clearCanvas: () => {
-        set({ nodes: [], edges: [], selectedNodeId: null })
-      },
-    }),
-    {
-      name: 'canvas-storage',
-    }
-  )
-)
+  clearCanvas: () => {
+    set({ nodes: [], edges: [], selectedNodeId: null })
+  },
+}))
 
