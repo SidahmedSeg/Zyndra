@@ -311,6 +311,15 @@ export default function Canvas({ projectId }: CanvasProps) {
           onConnect={onConnect}
           onInit={setReactFlowInstance}
           onPaneContextMenu={onPaneContextMenu}
+          onNodeClick={(_, node) => {
+            if (node.type === 'service') {
+              setSelectedService(node.data.service)
+            } else if (node.type === 'database') {
+              setSelectedDatabase(node.data.database)
+            } else if (node.type === 'volume') {
+              setSelectedVolume(node.data.volume)
+            }
+          }}
           nodeTypes={nodeTypes}
           fitView
         >
