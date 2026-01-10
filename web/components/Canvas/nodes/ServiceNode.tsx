@@ -2,7 +2,6 @@
 
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
-import { Loader2 } from 'lucide-react'
 import type { Service } from '@/lib/api/services'
 import { useServicesStore } from '@/stores/servicesStore'
 import { deploymentsApi, type Deployment, getStatusDisplay } from '@/lib/api/deployments'
@@ -69,10 +68,10 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
   
   // Service status when not deploying
   const serviceStatus = service.status === 'running' 
-    ? { label: 'Online', color: 'text-emerald-500', dot: 'bg-emerald-500' }
+    ? { label: 'Online', color: 'text-emerald-500' }
     : service.status === 'error'
-    ? { label: 'Failed', color: 'text-red-500', dot: 'bg-red-500' }
-    : { label: service.status, color: 'text-gray-500', dot: 'bg-gray-400' }
+    ? { label: 'Failed', color: 'text-red-500' }
+    : { label: service.status, color: 'text-gray-500' }
 
   // Use deployment status if deploying, otherwise use service status
   const displayStatus = isDeploying && deploymentStatus
@@ -83,55 +82,55 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
     ? { label: 'Failed', color: 'text-red-500' }
     : serviceStatus
 
+  // Deployment phase text (shown next to Online)
+  const deploymentPhase = isDeploying && deploymentStatus ? deploymentStatus.label : null
+
   // Parse URL for display
   const displayUrl = service.generated_url || 'App custom link here'
 
   return (
     <div
-      className={`rounded-xl border-2 min-w-[200px] max-w-[220px] cursor-pointer bg-white shadow-sm overflow-hidden ${
-        selected ? 'border-cyan-500' : 'border-cyan-400'
+      className={`rounded-2xl min-w-[280px] max-w-[320px] cursor-pointer bg-white shadow-md overflow-hidden border ${
+        selected ? 'border-gray-400' : 'border-gray-200'
       }`}
       onClick={handleClick}
     >
-      <Handle type="target" position={Position.Top} className="!bg-cyan-500" />
+      <Handle type="target" position={Position.Top} className="!bg-gray-400 !w-2 !h-2" />
       
-      {/* Header */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-start gap-2">
-          <img src="/github-icon.svg" alt="" className="w-5 h-5 opacity-70 mt-0.5" />
+      {/* Content */}
+      <div className="px-5 py-4">
+        {/* Header with GitHub icon and repo name */}
+        <div className="flex items-start gap-3 mb-6">
+          <img src="/github-icon.svg" alt="" className="w-6 h-6 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm text-gray-900 truncate">{data.label}</div>
-            <div className="text-xs text-gray-400 truncate">{displayUrl}</div>
+            <div className="font-medium text-base text-gray-900">{data.label}</div>
+            <div className="text-sm text-gray-400">{displayUrl}</div>
           </div>
         </div>
-      </div>
 
-      {/* Status bar */}
-      <div className="px-4 py-2 border-t border-gray-100">
+        {/* Status section */}
         <div className="flex items-center gap-2">
-          {isDeploying ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <Loader2 className={`w-3 h-3 ${displayStatus.color} animate-spin`} />
-            </>
-          ) : (
-            <span className={`w-2 h-2 rounded-full ${
-              displayStatus.label === 'Online' ? 'bg-emerald-500' : 
-              displayStatus.label === 'Failed' ? 'bg-red-500' : 'bg-gray-400'
-            }`} />
+          {/* Green dot for Online */}
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-sm text-emerald-500 font-medium">Online</span>
+          
+          {/* Deployment phase if deploying */}
+          {deploymentPhase && (
+            <span className="text-sm text-gray-400 ml-1">
+              {deploymentPhase} ({elapsedTime})
+            </span>
           )}
-          <span className={`text-xs ${displayStatus.color}`}>
-            {displayStatus.label}
-          </span>
-          {isDeploying && (
-            <span className="text-xs text-gray-400 ml-auto">
+          
+          {/* Show elapsed time even if not deploying but just finished */}
+          {!deploymentPhase && elapsedTime !== '00:00' && (
+            <span className="text-sm text-gray-400 ml-1">
               ({elapsedTime})
             </span>
           )}
         </div>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!bg-cyan-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-gray-400 !w-2 !h-2" />
     </div>
   )
 }
