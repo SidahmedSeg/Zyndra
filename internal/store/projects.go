@@ -11,18 +11,20 @@ import (
 )
 
 type Project struct {
-	ID                uuid.UUID
-	CasdoorOrgID      string
-	Name              string
-	Slug              string
-	Description       sql.NullString
-	OpenStackTenantID string
+	ID                 uuid.UUID
+	CasdoorOrgID       string
+	Name               string
+	Slug               string
+	Description        sql.NullString
+	OpenStackTenantID  string
 	OpenStackNetworkID sql.NullString
-	DefaultRegion     sql.NullString
-	AutoDeploy        bool
-	CreatedBy         sql.NullString
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	DefaultRegion      sql.NullString
+	AutoDeploy         bool
+	CreatedBy          sql.NullString
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	OrgID              uuid.NullUUID // Custom auth organization ID
+	UserID             uuid.NullUUID // Custom auth user ID
 }
 
 func (db *DB) CreateProject(ctx context.Context, p *Project) error {
@@ -43,13 +45,13 @@ func (db *DB) CreateProject(ctx context.Context, p *Project) error {
 			INSERT INTO projects (
 				id, casdoor_org_id, name, slug, description,
 				openstack_tenant_id, openstack_network_id,
-				default_region, auto_deploy, created_by
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+				default_region, auto_deploy, created_by, org_id, user_id
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		`
 		_, err = db.ExecContext(ctx, query,
 			p.ID.String(), p.CasdoorOrgID, p.Name, p.Slug, p.Description,
 			p.OpenStackTenantID, p.OpenStackNetworkID,
-			p.DefaultRegion, p.AutoDeploy, p.CreatedBy,
+			p.DefaultRegion, p.AutoDeploy, p.CreatedBy, p.OrgID, p.UserID,
 		)
 		if err != nil {
 			return err
@@ -65,15 +67,15 @@ func (db *DB) CreateProject(ctx context.Context, p *Project) error {
 		INSERT INTO projects (
 			casdoor_org_id, name, slug, description,
 			openstack_tenant_id, openstack_network_id,
-			default_region, auto_deploy, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			default_region, auto_deploy, created_by, org_id, user_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at, updated_at
 	`
 
 	err = db.QueryRowContext(ctx, query,
 		p.CasdoorOrgID, p.Name, p.Slug, p.Description,
 		p.OpenStackTenantID, p.OpenStackNetworkID,
-		p.DefaultRegion, p.AutoDeploy, p.CreatedBy,
+		p.DefaultRegion, p.AutoDeploy, p.CreatedBy, p.OrgID, p.UserID,
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 
 	return err
@@ -81,13 +83,13 @@ func (db *DB) CreateProject(ctx context.Context, p *Project) error {
 
 func (db *DB) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
 	var p Project
-	query := `SELECT * FROM projects WHERE id = $1`
+	query := `SELECT id, casdoor_org_id, name, slug, description, openstack_tenant_id, openstack_network_id, default_region, auto_deploy, created_by, created_at, updated_at, org_id, user_id FROM projects WHERE id = $1`
 
 	err := db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID, &p.CasdoorOrgID, &p.Name, &p.Slug, &p.Description,
 		&p.OpenStackTenantID, &p.OpenStackNetworkID,
 		&p.DefaultRegion, &p.AutoDeploy, &p.CreatedBy,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.CreatedAt, &p.UpdatedAt, &p.OrgID, &p.UserID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -98,7 +100,7 @@ func (db *DB) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
 }
 
 func (db *DB) ListProjectsByOrg(ctx context.Context, orgID string) ([]*Project, error) {
-	query := `SELECT id, casdoor_org_id, name, slug, description, openstack_tenant_id, openstack_network_id, default_region, auto_deploy, created_by, created_at, updated_at FROM projects WHERE casdoor_org_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, casdoor_org_id, name, slug, description, openstack_tenant_id, openstack_network_id, default_region, auto_deploy, created_by, created_at, updated_at, org_id, user_id FROM projects WHERE casdoor_org_id = $1 ORDER BY created_at DESC`
 
 	rows, err := db.QueryContext(ctx, query, orgID)
 	if err != nil {
@@ -118,7 +120,39 @@ func (db *DB) ListProjectsByOrg(ctx context.Context, orgID string) ([]*Project, 
 			&p.ID, &p.CasdoorOrgID, &p.Name, &p.Slug, &p.Description,
 			&p.OpenStackTenantID, &p.OpenStackNetworkID,
 			&p.DefaultRegion, &p.AutoDeploy, &p.CreatedBy,
-			&p.CreatedAt, &p.UpdatedAt,
+			&p.CreatedAt, &p.UpdatedAt, &p.OrgID, &p.UserID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan project row: %w", err)
+		}
+		projects = append(projects, &p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating project rows: %w", err)
+	}
+
+	return projects, nil
+}
+
+// ListProjectsByOrgID lists projects by the new org_id column (for custom auth)
+func (db *DB) ListProjectsByOrgID(ctx context.Context, orgID uuid.UUID) ([]*Project, error) {
+	query := `SELECT id, casdoor_org_id, name, slug, description, openstack_tenant_id, openstack_network_id, default_region, auto_deploy, created_by, created_at, updated_at, org_id, user_id FROM projects WHERE org_id = $1 ORDER BY created_at DESC`
+
+	rows, err := db.QueryContext(ctx, query, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []*Project
+	for rows.Next() {
+		var p Project
+		err := rows.Scan(
+			&p.ID, &p.CasdoorOrgID, &p.Name, &p.Slug, &p.Description,
+			&p.OpenStackTenantID, &p.OpenStackNetworkID,
+			&p.DefaultRegion, &p.AutoDeploy, &p.CreatedBy,
+			&p.CreatedAt, &p.UpdatedAt, &p.OrgID, &p.UserID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan project row: %w", err)

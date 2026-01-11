@@ -86,7 +86,21 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projects, err := h.Store.ListProjectsByOrg(r.Context(), orgID)
+	var projects []*store.Project
+	var err error
+
+	// Try to parse orgID as UUID (for custom auth)
+	// If it's a valid UUID, use ListProjectsByOrgID, otherwise use ListProjectsByOrg (for Casdoor)
+	if parsedOrgID, parseErr := uuid.Parse(orgID); parseErr == nil {
+		projects, err = h.Store.ListProjectsByOrgID(r.Context(), parsedOrgID)
+		// If no projects found via org_id, also check casdoor_org_id for backward compatibility
+		if err == nil && len(projects) == 0 {
+			projects, err = h.Store.ListProjectsByOrg(r.Context(), orgID)
+		}
+	} else {
+		projects, err = h.Store.ListProjectsByOrg(r.Context(), orgID)
+	}
+
 	if err != nil {
 		// Log the error for debugging
 		log.Printf("Error listing projects for org %s: %v", orgID, err)
@@ -229,6 +243,15 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	if userID != "" {
 		project.CreatedBy = sql.NullString{String: userID, Valid: true}
+		// Also set UserID as UUID for custom auth
+		if parsedUserID, err := uuid.Parse(userID); err == nil {
+			project.UserID = uuid.NullUUID{UUID: parsedUserID, Valid: true}
+		}
+	}
+
+	// Set OrgID for custom auth
+	if parsedOrgID, err := uuid.Parse(orgID); err == nil {
+		project.OrgID = uuid.NullUUID{UUID: parsedOrgID, Valid: true}
 	}
 
 	if err := h.Store.CreateProject(r.Context(), project); err != nil {
