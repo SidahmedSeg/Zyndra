@@ -3,6 +3,7 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
 import type { Service } from '@/lib/api/services'
+import { useServicesStore } from '@/stores/servicesStore'
 import { deploymentsApi, type Deployment, getStatusDisplay } from '@/lib/api/deployments'
 
 interface ServiceNodeData {
@@ -11,10 +12,15 @@ interface ServiceNodeData {
 }
 
 function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
+  const { setSelectedService } = useServicesStore()
   const { service } = data
   
   const [deployment, setDeployment] = useState<Deployment | null>(null)
   const [elapsedTime, setElapsedTime] = useState<string>('00:00')
+
+  const handleClick = () => {
+    setSelectedService(service)
+  }
 
   // Poll for latest deployment status
   useEffect(() => {
@@ -56,8 +62,6 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
     }
   }, [service.id, deployment?.started_at, deployment?.status])
 
-  // Click is handled by ReactFlow's onNodeClick in Canvas component
-
   // Determine display status based on deployment
   const isDeploying = deployment && !['success', 'failed', 'cancelled'].includes(deployment.status)
   const deploymentStatus = deployment ? getStatusDisplay(deployment.status) : null
@@ -86,6 +90,7 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
 
   return (
     <div
+      onClick={handleClick}
       className={`rounded-2xl min-w-[280px] max-w-[320px] cursor-pointer bg-white shadow-md overflow-hidden border ${
         selected ? 'border-gray-400' : 'border-gray-200'
       }`}
