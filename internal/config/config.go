@@ -101,6 +101,11 @@ type Config struct {
 	K8sBaseDomain     string `envconfig:"K8S_BASE_DOMAIN" default:"up.zyndra.app"` // Base domain for generated URLs
 	K8sIngressClass   string `envconfig:"K8S_INGRESS_CLASS" default:"traefik"`
 	K8sCertIssuer     string `envconfig:"K8S_CERT_ISSUER" default:"letsencrypt-prod"`
+
+	// Mailtrap (Email)
+	MailtrapAPIToken   string `envconfig:"MAILTRAP_API_TOKEN"`
+	MailtrapSenderEmail string `envconfig:"MAILTRAP_SENDER_EMAIL" default:"noreply@zyndra.app"`
+	MailtrapSenderName  string `envconfig:"MAILTRAP_SENDER_NAME" default:"Zyndra"`
 }
 
 func Load() (*Config, error) {

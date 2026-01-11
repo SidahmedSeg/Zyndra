@@ -10,6 +10,7 @@ export interface Project {
   openstack_network_id?: string
   created_at: string
   updated_at: string
+  service_count?: number
 }
 
 export interface CreateProjectRequest {

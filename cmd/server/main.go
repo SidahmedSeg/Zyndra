@@ -148,6 +148,7 @@ func main() {
 		jwtService := auth.NewJWTService(jwtConfig)
 		authValidator = auth.NewJWTValidator(jwtService)
 		customAuthHandler = api.RegisterCustomAuthRoutes(r, db, cfg, authValidator)
+		api.RegisterOTPRoutes(r, db, cfg) // OTP routes for email verification
 		log.Println("🔐 Using Zyndra Custom JWT Auth")
 	} else if cfg.DisableAuth {
 		// Use mock auth for development

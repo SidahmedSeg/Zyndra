@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // User represents a user in the system
@@ -180,5 +182,51 @@ func (db *DB) UserExistsByEmail(ctx context.Context, email string) (bool, error)
 		return false, fmt.Errorf("failed to check user existence: %w", err)
 	}
 	return exists, nil
+}
+
+// CreateUserWithVerifiedEmail creates a new user with email already verified
+func (db *DB) CreateUserWithVerifiedEmail(ctx context.Context, email, password, name string) (*User, error) {
+	// Hash password
+	passwordHash, err := hashPassword(password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	query := `
+		INSERT INTO users (email, password_hash, name, email_verified)
+		VALUES ($1, $2, $3, true)
+		RETURNING id, email, name, avatar_url, email_verified, created_at, updated_at
+	`
+
+	var user User
+	var avatarURL sql.NullString
+	err = db.QueryRowContext(ctx, query, email, passwordHash, name).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Name,
+		&avatarURL,
+		&user.EmailVerified,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	user.PasswordHash = passwordHash
+	if avatarURL.Valid {
+		user.AvatarURL = avatarURL.String
+	}
+
+	return &user, nil
+}
+
+// hashPassword hashes a password using bcrypt
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}
+	return string(bytes), nil
 }
 
