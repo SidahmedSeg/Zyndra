@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
+import { authApi } from './auth'
 
 // Get API URL from environment variable (must be set at build time for Next.js)
 // For runtime configuration, we can also check window.location for same-origin
@@ -26,7 +27,7 @@ const getApiBaseURL = (): string => {
   return 'http://localhost:8080'
 }
 
-const API_BASE_URL = getApiBaseURL()
+export const API_BASE_URL = getApiBaseURL()
 
 export interface ApiError {
   code: string
@@ -59,10 +60,11 @@ class ApiClient {
       },
     })
 
-    // Request interceptor - add auth token
+    // Request interceptor - add auth token (with auto-refresh)
     this.client.interceptors.request.use(
-      (config) => {
-        const token = this.getToken()
+      async (config) => {
+        // Try to get a valid token (auto-refreshes if needed)
+        const token = await authApi.ensureValidToken() || this.getToken()
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
@@ -80,10 +82,10 @@ class ApiClient {
         if (error.response) {
           // Handle 401 Unauthorized - redirect to login
           if (error.response.status === 401) {
-            this.clearToken()
+            authApi.clearAuth()
             if (typeof window !== 'undefined') {
               // Don't throw error if we're already on login page
-              if (!window.location.pathname.startsWith('/auth/login')) {
+              if (!window.location.pathname.startsWith('/auth')) {
                 window.location.href = '/auth/login'
                 // Return a resolved promise to prevent error from propagating
                 return Promise.resolve({ data: null } as any)
@@ -105,18 +107,17 @@ class ApiClient {
   }
 
   getToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('auth_token')
+    return authApi.getAccessToken()
   }
 
   setToken(token: string) {
-    if (typeof window === 'undefined') return
-    localStorage.setItem('auth_token', token)
+    // Use authApi for token management
+    const refreshToken = authApi.getRefreshToken() || ''
+    authApi.setTokens(token, refreshToken)
   }
 
   clearToken() {
-    if (typeof window === 'undefined') return
-    localStorage.removeItem('auth_token')
+    authApi.clearAuth()
   }
 
   get<T>(url: string, config?: any) {

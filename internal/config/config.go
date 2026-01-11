@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -84,6 +86,12 @@ type Config struct {
 
 	// Development
 	DisableAuth bool `envconfig:"DISABLE_AUTH" default:"true"` // Use mock auth for development (set to false for Casdoor)
+
+	// Custom JWT Auth (Zyndra's own auth system)
+	UseCustomAuth    bool          `envconfig:"USE_CUSTOM_AUTH" default:"false"` // Use Zyndra's own JWT auth instead of Casdoor
+	JWTSecret        string        `envconfig:"JWT_SECRET" default:"change-me-in-production-32-chars"`
+	JWTAccessExpiry  time.Duration `envconfig:"JWT_ACCESS_EXPIRY" default:"15m"`
+	JWTRefreshExpiry time.Duration `envconfig:"JWT_REFRESH_EXPIRY" default:"168h"` // 7 days
 }
 
 func Load() (*Config, error) {

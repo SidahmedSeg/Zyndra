@@ -133,29 +133,40 @@ func main() {
 	r.Get("/git/callback/gitlab", gitHandler.CallbackGitLab)
 
 	// Authentication routes (public)
-	if cfg.DisableAuth {
+	var authValidator auth.ValidatorInterface
+	var customAuthHandler *api.CustomAuthHandler
+
+	if cfg.UseCustomAuth {
+		// Use Zyndra's own JWT auth system
+		customAuthHandler = api.RegisterCustomAuthRoutes(r, db, cfg)
+		authValidator = auth.NewJWTValidator(customAuthHandler.GetJWTService())
+		log.Println("🔐 Using Zyndra Custom JWT Auth")
+	} else if cfg.DisableAuth {
 		// Use mock auth for development
 		api.RegisterMockAuthRoutes(r, cfg)
+		authValidator = auth.NewMockValidator()
+		log.Println("⚠️  Using Mock Auth (development mode)")
 	} else {
 		// Use Casdoor OAuth
 		api.RegisterAuthRoutes(r, cfg)
-	}
-
-	// Initialize auth validator
-	// Use mock validator for development/testing
-	var authValidator auth.ValidatorInterface
-	if cfg.DisableAuth {
-		authValidator = auth.NewMockValidator()
-	} else {
 		authValidator = auth.NewValidator(cfg.CasdoorEndpoint, cfg.CasdoorClientID)
+		log.Println("🔐 Using Casdoor Auth")
 	}
 
-		// API routes (require authentication)
-		r.Route("/v1/click-deploy", func(r chi.Router) {
-			// Apply authentication middleware to all API routes
+	// Protected auth routes (require authentication)
+	if customAuthHandler != nil {
+		r.Route("/auth", func(r chi.Router) {
 			r.Use(auth.Middleware(authValidator))
-			// Apply rate limiting (100 requests per minute per user)
-			r.Use(api.PerUserRateLimitMiddleware(100, time.Minute))
+			r.Get("/me", customAuthHandler.Me)
+		})
+	}
+
+	// API routes (require authentication)
+	r.Route("/v1/click-deploy", func(r chi.Router) {
+		// Apply authentication middleware to all API routes
+		r.Use(auth.Middleware(authValidator))
+		// Apply rate limiting (100 requests per minute per user)
+		r.Use(api.PerUserRateLimitMiddleware(100, time.Minute))
 
 		// Projects endpoints
 		projectHandler := api.NewProjectHandler(db, cfg)

@@ -1,8 +1,67 @@
 # Click to Deploy - Project Status
 
-**Last Updated:** 2026-01-09  
-**Current Phase:** ✅ Phase 7: Polish & Production (Complete)  
-**Project Status:** ✅ **PRODUCTION DEPLOYED**
+**Last Updated:** 2026-01-11  
+**Current Phase:** 🚧 Phase 8: Zyndra Stack Migration (In Progress)  
+**Project Status:** ✅ **PRODUCTION DEPLOYED** | 🔄 **STACK MIGRATION IN PROGRESS**
+
+---
+
+## 🚀 Phase 8: Zyndra Stack Migration
+
+**Goal:** Replace OpenStack + Casdoor with k3s + Custom JWT Auth
+
+### Phase 8.1: Custom JWT Authentication - ✅ COMPLETE
+
+**Database Migrations:**
+- ✅ `003_auth_tables.up.sql` - Created users, organizations, org_members, refresh_tokens tables
+- ✅ Added org_id, user_id columns to projects, git_connections, registry_credentials
+
+**Backend Auth Package:**
+- ✅ `internal/auth/jwt.go` - JWT token generation and validation
+- ✅ `internal/auth/password.go` - Password hashing with bcrypt
+- ✅ `internal/store/users.go` - User CRUD operations
+- ✅ `internal/store/organizations.go` - Organization and member management
+- ✅ `internal/store/refresh_tokens.go` - Refresh token management with rotation
+
+**API Endpoints:**
+- ✅ `POST /auth/register` - User registration with auto organization creation
+- ✅ `POST /auth/login` - User login with token pair generation
+- ✅ `POST /auth/refresh` - Token refresh with rotation
+- ✅ `POST /auth/logout` - Token revocation
+- ✅ `GET /auth/me` - Get current user (protected)
+
+**Config Updates:**
+- ✅ `USE_CUSTOM_AUTH` - Toggle between Casdoor and custom JWT
+- ✅ `JWT_SECRET` - Secret for signing tokens
+- ✅ `JWT_ACCESS_EXPIRY` - Access token expiry (default 15m)
+- ✅ `JWT_REFRESH_EXPIRY` - Refresh token expiry (default 7 days)
+
+**Frontend:**
+- ✅ `web/lib/api/auth.ts` - Auth API client with token management
+- ✅ Updated `web/lib/api/client.ts` - Auto-refresh token integration
+- ✅ `web/app/auth/login/page.tsx` - Login page with email/mock toggle
+- ✅ `web/app/auth/register/page.tsx` - Registration page
+
+### Phase 8.2: k3s Infrastructure - 🚧 PENDING
+
+**Planned:**
+- [ ] k3s cluster setup scripts
+- [ ] Kubernetes client package (`internal/k8s/`)
+- [ ] cert-manager for SSL
+- [ ] Longhorn for volumes
+- [ ] MinIO for object storage
+- [ ] Database operators (CloudNativePG, Redis)
+
+### Phase 8.3: Deployment Pipeline - 🚧 PENDING
+
+**Planned:**
+- [ ] Update build worker for k8s
+- [ ] Kubernetes manifest generation
+- [ ] Service deployment to namespaces
+- [ ] Ingress management
+- [ ] Custom domain handling with cert-manager
+
+---
 
 ---
 
