@@ -26,8 +26,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await authApi.login({ email, password })
-      authApi.setTokens(response.access_token, response.refresh_token || '', response.expires_at)
+      await authApi.login({ email, password })
       router.push('/')
     } catch (err: any) {
       console.error('Login error:', err)

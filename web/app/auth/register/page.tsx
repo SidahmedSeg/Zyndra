@@ -28,8 +28,7 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      const response = await authApi.register({ email, password, name, org_name: orgName || `${name}'s Workspace` })
-      authApi.setTokens(response.access_token, response.refresh_token || '', response.expires_at)
+      await authApi.register({ email, password, name, org_name: orgName || `${name}'s Workspace` })
       router.push('/')
     } catch (err: any) {
       console.error('Registration error:', err)
