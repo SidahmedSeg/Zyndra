@@ -60,6 +60,21 @@ export default function Canvas({ projectId }: CanvasProps) {
   const [repoModalOpen, setRepoModalOpen] = useState(false)
   const [pendingNodePosition, setPendingNodePosition] = useState<{ x: number; y: number } | null>(null)
 
+  // When a drawer opens, pan the canvas to ensure the node is visible and not covered
+  useEffect(() => {
+    if (!reactFlowInstance) return
+    
+    const drawerWidth = 560 // Drawer width in pixels
+    const hasDrawerOpen = selectedService || selectedDatabase || selectedVolume
+    
+    if (hasDrawerOpen) {
+      // Get current viewport
+      const { x, y, zoom } = reactFlowInstance.getViewport()
+      // Pan left by half the drawer width to make room
+      reactFlowInstance.setViewport({ x: x - (drawerWidth / 2) / zoom, y, zoom }, { duration: 300 })
+    }
+  }, [selectedService, selectedDatabase, selectedVolume, reactFlowInstance])
+
   // Load services and create nodes
   useEffect(() => {
     if (projectId) {
@@ -83,16 +98,24 @@ export default function Canvas({ projectId }: CanvasProps) {
           label: service.name,
           service,
         },
+        selected: selectedService?.id === service.id,
       }))
 
       // Only add nodes that don't already exist
       setNodes((currentNodes) => {
         const existingIds = new Set(currentNodes.map((n) => n.id))
         const newNodes = serviceNodes.filter((n) => !existingIds.has(n.id))
-        return newNodes.length > 0 ? [...currentNodes, ...newNodes] : currentNodes
+        if (newNodes.length > 0) {
+          return [...currentNodes, ...newNodes]
+        }
+        // Update selected state for existing nodes
+        return currentNodes.map((node) => ({
+          ...node,
+          selected: selectedService?.id === node.id,
+        }))
       })
     }
-  }, [servicesList, setNodes])
+  }, [servicesList, selectedService, setNodes])
 
   // Convert databases to nodes
   useEffect(() => {

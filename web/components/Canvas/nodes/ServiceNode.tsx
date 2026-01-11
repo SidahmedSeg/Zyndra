@@ -91,9 +91,8 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
   return (
     <div
       onClick={handleClick}
-      className={`rounded-2xl min-w-[280px] max-w-[320px] cursor-pointer bg-white shadow-md overflow-hidden border ${
-        selected ? 'border-gray-400' : 'border-gray-200'
-      }`}
+      className="rounded-2xl min-w-[280px] max-w-[320px] cursor-pointer bg-white shadow-md overflow-hidden border-2"
+      style={{ borderColor: selected ? '#4F46E5' : '#e5e7eb' }}
     >
       <Handle type="target" position={Position.Top} className="!bg-gray-400 !w-2 !h-2" />
       

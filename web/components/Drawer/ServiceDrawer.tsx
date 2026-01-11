@@ -48,19 +48,12 @@ export default function ServiceDrawer({ service, isOpen, onClose }: ServiceDrawe
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Drawer - no backdrop, no shadow */}
       <div
-        className={`fixed inset-0 bg-black/20 transition-opacity duration-300 z-40 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div
-        className={`fixed top-0 right-0 h-full w-[520px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
+        className={`fixed right-0 w-[560px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
+        style={{ top: '96px', height: 'calc(100vh - 96px)' }}
       >
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100">
@@ -99,7 +92,7 @@ export default function ServiceDrawer({ service, isOpen, onClose }: ServiceDrawe
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto h-[calc(100%-130px)]">
+        <div className="overflow-y-auto h-[calc(100%-110px)]">
           {activeTab === 'deployment' && (
             <DeploymentTab service={service} deployment={latestDeployment} />
           )}
