@@ -138,9 +138,16 @@ func main() {
 	var customAuthHandler *api.CustomAuthHandler
 
 	if cfg.UseCustomAuth {
-		// Use Zyndra's own JWT auth system
-		customAuthHandler = api.RegisterCustomAuthRoutes(r, db, cfg)
-		authValidator = auth.NewJWTValidator(customAuthHandler.GetJWTService())
+		// Use Zyndra's own JWT auth system - get JWT service first
+		jwtConfig := auth.JWTConfig{
+			Secret:        cfg.JWTSecret,
+			AccessExpiry:  cfg.JWTAccessExpiry,
+			RefreshExpiry: cfg.JWTRefreshExpiry,
+			Issuer:        "zyndra",
+		}
+		jwtService := auth.NewJWTService(jwtConfig)
+		authValidator = auth.NewJWTValidator(jwtService)
+		customAuthHandler = api.RegisterCustomAuthRoutes(r, db, cfg, authValidator)
 		log.Println("🔐 Using Zyndra Custom JWT Auth")
 	} else if cfg.DisableAuth {
 		// Use mock auth for development
@@ -154,13 +161,8 @@ func main() {
 		log.Println("🔐 Using Casdoor Auth")
 	}
 
-	// Protected auth routes (require authentication)
-	if customAuthHandler != nil {
-		r.Route("/auth", func(r chi.Router) {
-			r.Use(auth.Middleware(authValidator))
-			r.Get("/me", customAuthHandler.Me)
-		})
-	}
+	// Note: /auth/me is registered in RegisterCustomAuthRoutes with auth middleware
+	_ = customAuthHandler // Suppress unused warning if not using custom auth
 
 	// API routes (require authentication)
 	r.Route("/v1/click-deploy", func(r chi.Router) {

@@ -442,7 +442,7 @@ func (h *CustomAuthHandler) GetJWTService() *auth.JWTService {
 }
 
 // RegisterCustomAuthRoutes registers the custom auth routes
-func RegisterCustomAuthRoutes(r chi.Router, db *store.DB, cfg *config.Config) *CustomAuthHandler {
+func RegisterCustomAuthRoutes(r chi.Router, db *store.DB, cfg *config.Config, authValidator auth.ValidatorInterface) *CustomAuthHandler {
 	handler := NewCustomAuthHandler(db, cfg)
 
 	r.Route("/auth", func(r chi.Router) {
@@ -451,6 +451,12 @@ func RegisterCustomAuthRoutes(r chi.Router, db *store.DB, cfg *config.Config) *C
 		r.Post("/login", handler.Login)
 		r.Post("/refresh", handler.Refresh)
 		r.Post("/logout", handler.Logout)
+		
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(auth.Middleware(authValidator))
+			r.Get("/me", handler.Me)
+		})
 	})
 
 	return handler
