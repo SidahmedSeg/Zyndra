@@ -53,9 +53,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {/* Logo */}
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg">
-              <img src="/logo-icon.svg" alt="Zyndra" className="h-10 w-8" />
-            </div>
+            <img src="/logo-icon.svg" alt="Zyndra" className="h-16" />
           </div>
 
           {/* Title */}
