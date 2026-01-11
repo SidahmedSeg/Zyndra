@@ -66,11 +66,11 @@ export default function Home() {
     <div className="min-h-screen bg-[#f5f5f5]">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
-            <div className="flex items-center gap-8">
-              <img src="/logo-zyndra.svg" alt="Zyndra" className="h-6" />
+            <div className="flex items-center">
+              <img src="/logo-zyndra.svg" alt="Zyndra" className="h-5" />
             </div>
             
             {/* Right side */}
@@ -78,46 +78,48 @@ export default function Home() {
               <a href="#" className="text-sm text-gray-600 hover:text-gray-900">
                 Documentation
               </a>
-              <div className="w-px h-5 bg-gray-200" />
-              <button className="relative p-1.5 text-gray-500 hover:text-gray-700">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-gray-700 rounded-full">
+              <div className="w-px h-5 bg-gray-300" />
+              <button className="relative p-1 text-gray-400 hover:text-gray-600">
+                <Bell className="w-5 h-5" strokeWidth={1.5} />
+                <span className="absolute -top-1 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-medium text-gray-600 bg-white border border-gray-300 rounded-full">
                   32
                 </span>
               </button>
-              <button className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white text-sm font-medium ring-2 ring-white ring-offset-2 ring-offset-gray-100">
-                U
-              </button>
+              <div className="relative">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center ring-2 ring-emerald-400 ring-offset-2 ring-offset-white">
+                  <span className="text-white text-xs font-medium">👤</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
       
       {/* Main content */}
-      <main className="container mx-auto px-6 py-10">
+      <main className="max-w-7xl mx-auto px-8 py-12">
         {/* Title section */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-semibold text-gray-900">My Projects</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={handleSettings}
-              className="p-2 text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="p-2 text-gray-400 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               aria-label="Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-4 h-4" strokeWidth={1.5} />
             </button>
             <button
               onClick={handleInvite}
-              className="flex items-center gap-1.5 px-3 py-2 text-gray-700 bg-white border border-gray-200 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-indigo-600 bg-white border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4" strokeWidth={1.5} />
               <span>Invite</span>
             </button>
             <button
               onClick={() => router.push('/create-project')}
               className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" strokeWidth={2} />
               <span>Create</span>
             </button>
           </div>
@@ -159,27 +161,25 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {projectsList.map((project) => (
               <div
                 key={project.id}
                 onClick={() => handleProjectClick(project.id)}
-                className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all"
+                className="bg-white rounded-lg border border-gray-200 p-5 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all min-h-[140px] flex flex-col"
               >
-                <div className="flex flex-col h-full">
-                  <div className="mb-8">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">
-                      {project.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(project.created_at)}
-                    </p>
-                  </div>
-                  <div className="mt-auto">
-                    <span className="text-sm text-indigo-600 font-medium">
-                      {String(project.service_count || 0).padStart(2, '0')} Services in use
-                    </span>
-                  </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    {project.name}
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    {formatDate(project.created_at)}
+                  </p>
+                </div>
+                <div className="mt-auto pt-6">
+                  <span className="text-xs text-indigo-600">
+                    {String(project.service_count || 0).padStart(2, '0')} Services in use
+                  </span>
                 </div>
               </div>
             ))}
