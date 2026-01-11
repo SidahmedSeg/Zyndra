@@ -45,7 +45,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo/Logo zyndra.svg" alt="Zyndra" className="h-8" />
+          <img src="/logo-zyndra.svg" alt="Zyndra" className="h-8" />
         </div>
 
         {/* Title */}
