@@ -42,12 +42,37 @@
 - ✅ `web/app/auth/login/page.tsx` - Login page with email/mock toggle
 - ✅ `web/app/auth/register/page.tsx` - Registration page
 
-### Phase 8.2: k3s Infrastructure - 🚧 PENDING
+### Phase 8.2: k3s Infrastructure - ✅ COMPLETE (Client Package)
 
-**Planned:**
+**Kubernetes Client Package:**
+- ✅ `internal/k8s/client.go` - Core k8s client with auto-config detection
+- ✅ `internal/k8s/deployments.go` - Deployment CRUD with health checks, resources, rolling updates
+- ✅ `internal/k8s/services.go` - K8s Service management (ClusterIP)
+- ✅ `internal/k8s/ingress.go` - Ingress with TLS, custom domains, cert-manager integration
+- ✅ `internal/k8s/secrets.go` - Environment variables via K8s Secrets
+
+**Config Variables:**
+- ✅ `USE_K8S` - Toggle between OpenStack and k8s
+- ✅ `K8S_KUBECONFIG_PATH` - Path to kubeconfig
+- ✅ `K8S_IN_CLUSTER` - Use in-cluster config
+- ✅ `K8S_NAMESPACE_PREFIX` - Prefix for project namespaces
+- ✅ `K8S_BASE_DOMAIN` - Base domain for generated URLs
+- ✅ `K8S_INGRESS_CLASS` - Ingress controller class
+- ✅ `K8S_CERT_ISSUER` - cert-manager ClusterIssuer name
+
+**Features:**
+- Namespace per project isolation
+- Deployment with resource limits and health probes
+- Service exposure via ClusterIP
+- Ingress with auto-SSL via cert-manager
+- Custom domain support with CNAME verification
+- Environment variables via K8s Secrets
+- Rolling updates with zero downtime
+- Deployment scaling and restart
+
+**Pending for k3s setup:**
 - [ ] k3s cluster setup scripts
-- [ ] Kubernetes client package (`internal/k8s/`)
-- [ ] cert-manager for SSL
+- [ ] cert-manager ClusterIssuer configuration
 - [ ] Longhorn for volumes
 - [ ] MinIO for object storage
 - [ ] Database operators (CloudNativePG, Redis)

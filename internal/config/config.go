@@ -92,6 +92,15 @@ type Config struct {
 	JWTSecret        string        `envconfig:"JWT_SECRET" default:"change-me-in-production-32-chars"`
 	JWTAccessExpiry  time.Duration `envconfig:"JWT_ACCESS_EXPIRY" default:"15m"`
 	JWTRefreshExpiry time.Duration `envconfig:"JWT_REFRESH_EXPIRY" default:"168h"` // 7 days
+
+	// Kubernetes (k3s)
+	UseK8s            bool   `envconfig:"USE_K8S" default:"false"` // Use k8s instead of OpenStack
+	K8sKubeconfigPath string `envconfig:"K8S_KUBECONFIG_PATH"`     // Path to kubeconfig (empty = auto-detect)
+	K8sInCluster      bool   `envconfig:"K8S_IN_CLUSTER" default:"false"` // Use in-cluster config
+	K8sNamespacePrefix string `envconfig:"K8S_NAMESPACE_PREFIX" default:"zyndra-"`
+	K8sBaseDomain     string `envconfig:"K8S_BASE_DOMAIN" default:"up.zyndra.app"` // Base domain for generated URLs
+	K8sIngressClass   string `envconfig:"K8S_INGRESS_CLASS" default:"traefik"`
+	K8sCertIssuer     string `envconfig:"K8S_CERT_ISSUER" default:"letsencrypt-prod"`
 }
 
 func Load() (*Config, error) {
