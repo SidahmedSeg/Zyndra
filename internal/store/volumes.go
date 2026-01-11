@@ -280,3 +280,48 @@ func (db *DB) DeleteVolume(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// UpdateVolumeStatus updates just the status field of a volume
+func (db *DB) UpdateVolumeStatus(ctx context.Context, id uuid.UUID, status string) error {
+	query := `UPDATE volumes SET status = $1 WHERE id = $2`
+	_, err := db.ExecContext(ctx, query, status, id)
+	return err
+}
+
+// UpdateVolumeSize updates the size of a volume
+func (db *DB) UpdateVolumeSize(ctx context.Context, id uuid.UUID, sizeMB int) error {
+	query := `UPDATE volumes SET size_mb = $1 WHERE id = $2`
+	_, err := db.ExecContext(ctx, query, sizeMB, id)
+	return err
+}
+
+// AttachVolume attaches a volume to a service or database
+func (db *DB) AttachVolume(ctx context.Context, volumeID uuid.UUID, serviceID *uuid.UUID, databaseID *uuid.UUID) error {
+	query := `
+		UPDATE volumes
+		SET attached_to_service_id = $1, attached_to_database_id = $2, status = 'attached'
+		WHERE id = $3
+	`
+
+	var svcID, dbID interface{}
+	if serviceID != nil {
+		svcID = serviceID.String()
+	}
+	if databaseID != nil {
+		dbID = databaseID.String()
+	}
+
+	_, err := db.ExecContext(ctx, query, svcID, dbID, volumeID)
+	return err
+}
+
+// DetachVolume detaches a volume from any service or database
+func (db *DB) DetachVolume(ctx context.Context, volumeID uuid.UUID) error {
+	query := `
+		UPDATE volumes
+		SET attached_to_service_id = NULL, attached_to_database_id = NULL, status = 'available'
+		WHERE id = $1
+	`
+	_, err := db.ExecContext(ctx, query, volumeID)
+	return err
+}
+

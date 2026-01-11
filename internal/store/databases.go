@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -497,5 +498,39 @@ type DatabaseCredentials struct {
 	Password      string
 	Database      string
 	ConnectionURL string
+}
+
+// UpdateDatabaseStatus updates just the status field of a database
+func (db *DB) UpdateDatabaseStatus(ctx context.Context, id uuid.UUID, status string) error {
+	query := `UPDATE databases SET status = $1 WHERE id = $2`
+	_, err := db.ExecContext(ctx, query, status, id)
+	return err
+}
+
+// UpdateDatabaseFields updates multiple fields of a database using a map
+func (db *DB) UpdateDatabaseFields(ctx context.Context, id uuid.UUID, fields map[string]interface{}) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	// Build dynamic query
+	query := "UPDATE databases SET "
+	args := make([]interface{}, 0)
+	i := 1
+
+	for field, value := range fields {
+		if i > 1 {
+			query += ", "
+		}
+		query += fmt.Sprintf("%s = $%d", field, i)
+		args = append(args, value)
+		i++
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d", i)
+	args = append(args, id)
+
+	_, err := db.ExecContext(ctx, query, args...)
+	return err
 }
 

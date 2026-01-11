@@ -90,14 +90,37 @@
 - [ ] Harbor registry deployment
 - [ ] Integration with build worker
 
-### Phase 8.3: Deployment Pipeline - 🚧 IN PROGRESS
+### Phase 8.3: Deployment Pipeline - ✅ COMPLETE
 
-**Planned:**
-- [ ] Update build worker to use k8s client
-- [ ] Service deployment to namespaces
-- [ ] Ingress creation with auto-SSL
+**k8s Workers:**
+- ✅ `internal/worker/k8s_deploy.go` - Deploy services to k8s after build
+- ✅ `internal/worker/k8s_database.go` - Database provisioning via StatefulSets
+- ✅ `internal/worker/k8s_volume.go` - Volume management via PVCs
+
+**Deployment Flow:**
+1. Build image (BuildKit/Railpack)
+2. Push to registry
+3. Create/update k8s namespace
+4. Create k8s Secret (env vars)
+5. Create/update Deployment
+6. Create k8s Service (ClusterIP)
+7. Create/update Ingress (with TLS)
+8. Wait for pods ready
+9. Update service status and URL
+
+**Features:**
+- Full deployment lifecycle management
+- Environment variables via Secrets
+- Custom domain support via Ingress
+- Auto-SSL via cert-manager
+- Cleanup on service/project deletion
+- Database provisioning with auto-credentials
+- Volume creation and attachment
+
+**Pending:**
 - [ ] Pending changes detection (webhooks → modal)
 - [ ] Live metrics streaming from k8s Metrics Server
+- [ ] k3s cluster setup scripts
 
 ---
 
