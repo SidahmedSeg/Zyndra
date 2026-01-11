@@ -47,6 +47,7 @@ export interface RegisterRequest {
   email: string
   password: string
   name: string
+  org_name?: string
 }
 
 export interface LoginRequest {
