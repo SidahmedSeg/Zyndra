@@ -117,10 +117,93 @@
 - Database provisioning with auto-credentials
 - Volume creation and attachment
 
-**Pending:**
-- [ ] Pending changes detection (webhooks → modal)
-- [ ] Live metrics streaming from k8s Metrics Server
-- [ ] k3s cluster setup scripts
+### Phase 8.4: Pending Changes Flow - ✅ COMPLETE
+
+**Database Migration:**
+- ✅ `004_pending_commits.up.sql` - Pending commits table with service linking
+
+**Store Layer:**
+- ✅ `internal/store/pending_commits.go` - Full CRUD for pending commits
+  - Create, list, acknowledge, mark as deployed
+  - Automatic pending count updates on services
+
+**API Endpoints:**
+- ✅ `GET /services/{id}/pending-changes` - List pending commits
+- ✅ `GET /services/{id}/pending-changes/count` - Get pending count
+- ✅ `POST /services/{id}/pending-changes/acknowledge` - Acknowledge changes
+- ✅ `POST /services/{id}/pending-changes/deploy` - Trigger deployment for pending changes
+
+**Features:**
+- Webhooks store commits instead of auto-deploying
+- UI shows "N changes detected" modal
+- User manually triggers deployment via "Redeploy" button
+- Tracks commit SHA, message, author, URL, branch
+- Per-service `auto_deploy` toggle option
+
+### Phase 8.5: Live Metrics - ✅ COMPLETE
+
+**k8s Metrics Client:**
+- ✅ `internal/k8s/metrics.go` - Metrics Server client
+  - Pod metrics (CPU, Memory)
+  - Service aggregated metrics
+  - Namespace metrics
+  - Node metrics
+
+**API Endpoints:**
+- ✅ `GET /services/{id}/metrics` - Get live service metrics
+- ✅ `GET /projects/{id}/metrics` - Get project-wide metrics
+- ✅ `GET /cluster/metrics` - Get node metrics (admin)
+- ✅ `GET /metrics/available` - Check if Metrics Server is available
+
+**Features:**
+- Real-time CPU and memory from k8s Metrics Server
+- Aggregated metrics per service (all pods)
+- Fallback to mock metrics when k8s is disabled
+- Human-readable values (e.g., "256Mi", "500m")
+
+### Phase 8.6: k3s Cluster Setup Scripts - ✅ COMPLETE
+
+**Scripts:**
+- ✅ `scripts/k3s/install.sh` - Full cluster installation
+  - k3s installation with Traefik disabled (replaced by custom Traefik)
+  - Helm installation
+  - Traefik Ingress Controller (HTTP→HTTPS redirect)
+  - cert-manager with Let's Encrypt ClusterIssuers (prod/staging)
+  - Longhorn distributed storage
+  - Metrics Server with kubelet-insecure-tls patch
+  - Registry secret creation
+  - Zyndra system namespace
+
+- ✅ `scripts/k3s/uninstall.sh` - Clean cluster removal
+- ✅ `scripts/k3s/verify.sh` - Health check script
+
+**Usage:**
+```bash
+# Install (as root)
+sudo DOMAIN=up.zyndra.app EMAIL=admin@zyndra.app ./scripts/k3s/install.sh
+
+# Verify installation
+./scripts/k3s/verify.sh
+
+# Uninstall
+sudo ./scripts/k3s/uninstall.sh
+```
+
+**Installed Components:**
+- k3s (lightweight Kubernetes)
+- Traefik (Ingress Controller with HTTPS)
+- cert-manager (automatic SSL via Let's Encrypt)
+- Longhorn (distributed block storage)
+- Metrics Server (CPU/Memory monitoring)
+
+**Environment Variables for Backend:**
+```bash
+USE_K8S=true
+K8S_BASE_DOMAIN=up.zyndra.app
+K8S_INGRESS_CLASS=traefik
+K8S_CERT_ISSUER=letsencrypt-prod
+K8S_IN_CLUSTER=true  # or K8S_KUBECONFIG_PATH=/etc/rancher/k3s/k3s.yaml
+```
 
 ---
 

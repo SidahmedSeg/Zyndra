@@ -17,6 +17,7 @@ import (
 	"github.com/intelifox/click-deploy/internal/api"
 	"github.com/intelifox/click-deploy/internal/auth"
 	"github.com/intelifox/click-deploy/internal/config"
+	"github.com/intelifox/click-deploy/internal/k8s"
 	"github.com/intelifox/click-deploy/internal/migrate"
 	"github.com/intelifox/click-deploy/internal/store"
 
@@ -209,8 +210,27 @@ func main() {
 		// Custom domain endpoints
 		api.RegisterCustomDomainRoutes(r, db, cfg)
 
-		// Metrics endpoints
-		api.RegisterMetricsRoutes(r, db, cfg)
+		// Pending changes endpoints
+		api.RegisterPendingChangesRoutes(r, db, cfg)
+
+		// Metrics endpoints (k8s metrics client is optional)
+		var metricsClient *k8s.MetricsClient
+		if cfg.UseK8s {
+			k8sCfg := k8s.Config{
+				InCluster:       cfg.K8sInCluster,
+				KubeconfigPath:  cfg.K8sKubeconfigPath,
+				BaseDomain:      cfg.K8sBaseDomain,
+				IngressClass:    cfg.K8sIngressClass,
+				CertIssuer:      cfg.K8sCertIssuer,
+				NamespacePrefix: "zyndra-",
+			}
+			var err error
+			metricsClient, err = k8s.NewMetricsClient(k8sCfg)
+			if err != nil {
+				log.Printf("Warning: Could not initialize k8s metrics client: %v", err)
+			}
+		}
+		api.RegisterMetricsRoutes(r, db, cfg, metricsClient)
 	})
 
 	// Webhook endpoints (public, but validated via signature)
