@@ -70,21 +70,34 @@
 - Rolling updates with zero downtime
 - Deployment scaling and restart
 
-**Pending for k3s setup:**
-- [ ] k3s cluster setup scripts
-- [ ] cert-manager ClusterIssuer configuration
-- [ ] Longhorn for volumes
-- [ ] MinIO for object storage
-- [ ] Database operators (CloudNativePG, Redis)
+**Additional k8s Components:**
+- ✅ `internal/k8s/pvc.go` - PersistentVolumeClaim management (Longhorn)
+- ✅ `internal/k8s/databases.go` - Managed databases (PostgreSQL, MySQL, Redis, MongoDB)
 
-### Phase 8.3: Deployment Pipeline - 🚧 PENDING
+**Database Support:**
+- ✅ PostgreSQL via StatefulSet with pg_isready health checks
+- ✅ MySQL via StatefulSet with mysqladmin health checks
+- ✅ Redis via StatefulSet with redis-cli health checks
+- ✅ MongoDB via StatefulSet with mongosh health checks
+- ✅ Auto-generated credentials stored in k8s Secrets
+- ✅ Connection URL generation for each database type
+- ✅ Persistent storage via Longhorn PVCs
+
+**Pending for Production k3s:**
+- [ ] k3s cluster installation scripts
+- [ ] cert-manager ClusterIssuer configuration
+- [ ] Longhorn storage class setup
+- [ ] Harbor registry deployment
+- [ ] Integration with build worker
+
+### Phase 8.3: Deployment Pipeline - 🚧 IN PROGRESS
 
 **Planned:**
-- [ ] Update build worker for k8s
-- [ ] Kubernetes manifest generation
+- [ ] Update build worker to use k8s client
 - [ ] Service deployment to namespaces
-- [ ] Ingress management
-- [ ] Custom domain handling with cert-manager
+- [ ] Ingress creation with auto-SSL
+- [ ] Pending changes detection (webhooks → modal)
+- [ ] Live metrics streaming from k8s Metrics Server
 
 ---
 
