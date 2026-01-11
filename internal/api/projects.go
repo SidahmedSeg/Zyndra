@@ -148,7 +148,7 @@ func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify project belongs to organization
-	if project.CasdoorOrgID != orgID {
+	if !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Project"))
 		return
 	}

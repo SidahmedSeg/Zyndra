@@ -75,7 +75,7 @@ func (h *EnvVarHandler) CreateEnvVar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
@@ -195,7 +195,7 @@ func (h *EnvVarHandler) ListEnvVars(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
@@ -250,7 +250,7 @@ func (h *EnvVarHandler) UpdateEnvVar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
@@ -338,7 +338,7 @@ func (h *EnvVarHandler) DeleteEnvVar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}

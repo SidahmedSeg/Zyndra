@@ -72,7 +72,7 @@ func (h *RollbackHandler) RollbackDeployment(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
@@ -176,7 +176,7 @@ func (h *RollbackHandler) GetRollbackCandidates(w http.ResponseWriter, r *http.R
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}

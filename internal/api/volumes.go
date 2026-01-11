@@ -65,7 +65,7 @@ func (h *VolumeHandler) CreateVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
@@ -133,7 +133,7 @@ func (h *VolumeHandler) ListVolumes(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
@@ -179,7 +179,7 @@ func (h *VolumeHandler) GetVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Volume not found", http.StatusNotFound)
 		return
 	}
@@ -225,7 +225,7 @@ func (h *VolumeHandler) AttachVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Volume not found", http.StatusNotFound)
 		return
 	}
@@ -289,7 +289,7 @@ func (h *VolumeHandler) DetachVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Volume not found", http.StatusNotFound)
 		return
 	}
@@ -335,7 +335,7 @@ func (h *VolumeHandler) DeleteVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Volume not found", http.StatusNotFound)
 		return
 	}

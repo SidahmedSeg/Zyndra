@@ -66,7 +66,7 @@ func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
@@ -159,7 +159,7 @@ func (h *DatabaseHandler) ListDatabases(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
@@ -220,7 +220,7 @@ func (h *DatabaseHandler) GetDatabase(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			if project == nil || project.CasdoorOrgID != orgID {
+			if project == nil || !project.BelongsToOrg(orgID) {
 				http.Error(w, "Database not found", http.StatusNotFound)
 				return
 			}
@@ -275,7 +275,7 @@ func (h *DatabaseHandler) GetDatabaseCredentials(w http.ResponseWriter, r *http.
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			if project == nil || project.CasdoorOrgID != orgID {
+			if project == nil || !project.BelongsToOrg(orgID) {
 				http.Error(w, "Database not found", http.StatusNotFound)
 				return
 			}
@@ -335,7 +335,7 @@ func (h *DatabaseHandler) DeleteDatabase(w http.ResponseWriter, r *http.Request)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			if project == nil || project.CasdoorOrgID != orgID {
+			if project == nil || !project.BelongsToOrg(orgID) {
 				http.Error(w, "Database not found", http.StatusNotFound)
 				return
 			}

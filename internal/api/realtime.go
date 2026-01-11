@@ -103,7 +103,7 @@ func (h *RealtimeHandler) GetSubscriptionToken(w http.ResponseWriter, r *http.Re
 		}
 
 		project, err := h.store.GetProject(r.Context(), service.ProjectID)
-		if err != nil || project == nil || project.CasdoorOrgID != orgID {
+		if err != nil || project == nil || !project.BelongsToOrg(orgID) {
 			http.Error(w, "Deployment not found", http.StatusNotFound)
 			return
 		}
@@ -122,7 +122,7 @@ func (h *RealtimeHandler) GetSubscriptionToken(w http.ResponseWriter, r *http.Re
 		}
 
 		project, err := h.store.GetProject(r.Context(), service.ProjectID)
-		if err != nil || project == nil || project.CasdoorOrgID != orgID {
+		if err != nil || project == nil || !project.BelongsToOrg(orgID) {
 			http.Error(w, "Service not found", http.StatusNotFound)
 			return
 		}

@@ -118,7 +118,7 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Project"))
 		return
 	}
@@ -165,7 +165,7 @@ func (h *ServiceHandler) CreateService(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Project"))
 		return
 	}
@@ -309,7 +309,7 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}
@@ -351,7 +351,7 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}
@@ -439,7 +439,7 @@ func (h *ServiceHandler) UpdateServicePosition(w http.ResponseWriter, r *http.Re
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}
@@ -506,7 +506,7 @@ func (h *ServiceHandler) DeleteService(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}

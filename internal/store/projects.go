@@ -224,6 +224,26 @@ func (db *DB) ProjectExists(ctx context.Context, id uuid.UUID, orgID string) (bo
 	return exists, err
 }
 
+// BelongsToOrg checks if the project belongs to the given organization
+// This supports both Casdoor (string org ID) and custom auth (UUID org ID)
+func (p *Project) BelongsToOrg(orgID string) bool {
+	if p == nil {
+		return false
+	}
+	// Check CasdoorOrgID (string comparison)
+	if p.CasdoorOrgID == orgID {
+		return true
+	}
+	// Check OrgID (UUID comparison)
+	if p.OrgID.Valid {
+		parsedOrgID, err := uuid.Parse(orgID)
+		if err == nil && p.OrgID.UUID == parsedOrgID {
+			return true
+		}
+	}
+	return false
+}
+
 // GenerateSlug generates a URL-friendly slug from a project name
 func GenerateSlug(name string) string {
 	// Simple slug generation - convert to lowercase and replace spaces with hyphens

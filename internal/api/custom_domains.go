@@ -75,7 +75,7 @@ func (h *CustomDomainHandler) AddCustomDomain(w http.ResponseWriter, r *http.Req
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}
@@ -184,7 +184,7 @@ func (h *CustomDomainHandler) ListCustomDomains(w http.ResponseWriter, r *http.R
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Service"))
 		return
 	}
@@ -237,7 +237,7 @@ func (h *CustomDomainHandler) GetCustomDomain(w http.ResponseWriter, r *http.Req
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Custom Domain"))
 		return
 	}
@@ -283,7 +283,7 @@ func (h *CustomDomainHandler) VerifyCustomDomain(w http.ResponseWriter, r *http.
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Custom Domain"))
 		return
 	}
@@ -344,7 +344,7 @@ func (h *CustomDomainHandler) DeleteCustomDomain(w http.ResponseWriter, r *http.
 		WriteError(w, domain.ErrDatabase.WithError(err))
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		WriteError(w, domain.NewNotFoundError("Custom Domain"))
 		return
 	}

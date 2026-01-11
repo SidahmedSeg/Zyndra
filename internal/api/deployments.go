@@ -76,7 +76,7 @@ func (h *DeploymentHandler) TriggerDeployment(w http.ResponseWriter, r *http.Req
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
@@ -166,7 +166,7 @@ func (h *DeploymentHandler) GetDeployment(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -216,7 +216,7 @@ func (h *DeploymentHandler) GetDeploymentLogs(w http.ResponseWriter, r *http.Req
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -280,7 +280,7 @@ func (h *DeploymentHandler) CancelDeployment(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -336,7 +336,7 @@ func (h *DeploymentHandler) ListServiceDeployments(w http.ResponseWriter, r *htt
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if project == nil || project.CasdoorOrgID != orgID {
+	if project == nil || !project.BelongsToOrg(orgID) {
 		http.Error(w, "Service not found", http.StatusNotFound)
 		return
 	}
