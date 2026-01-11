@@ -64,7 +64,7 @@ export default function Canvas({ projectId }: CanvasProps) {
   useEffect(() => {
     if (!reactFlowInstance) return
     
-    const drawerWidth = 560 // Drawer width in pixels
+    const drawerWidth = 700 // Drawer width in pixels
     const hasDrawerOpen = selectedService || selectedDatabase || selectedVolume
     
     if (hasDrawerOpen) {

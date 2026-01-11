@@ -48,9 +48,9 @@ export default function ServiceDrawer({ service, isOpen, onClose }: ServiceDrawe
 
   return (
     <>
-      {/* Drawer - no backdrop, no shadow */}
+      {/* Drawer - no backdrop, no shadow, top-left rounded corner */}
       <div
-        className={`fixed right-0 w-[560px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-out ${
+        className={`fixed right-0 w-[700px] bg-white border-l border-t border-gray-200 rounded-tl-xl z-50 transform transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ top: '96px', height: 'calc(100vh - 96px)' }}
