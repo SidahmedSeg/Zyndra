@@ -2,8 +2,19 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Bell } from 'lucide-react'
+import { 
+  ChevronDown, 
+  Bell, 
+  User, 
+  Settings, 
+  BarChart3, 
+  LayoutGrid, 
+  HelpCircle, 
+  Moon, 
+  LogOut 
+} from 'lucide-react'
 import { useProjectsStore } from '@/stores/projectsStore'
+import { authApi } from '@/lib/api/auth'
 
 type TabType = 'architecture' | 'logs' | 'settings'
 
@@ -26,10 +37,20 @@ export default function AppHeader({
   const { projects, selectedProject, fetchProjects, setSelectedProject } = useProjectsStore()
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
   const [envDropdownOpen, setEnvDropdownOpen] = useState(false)
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const [currentEnv, setCurrentEnv] = useState('Production')
   const [currentTab, setCurrentTab] = useState<TabType>(activeTab)
+  const [darkTheme, setDarkTheme] = useState(false)
   const projectDropdownRef = useRef<HTMLDivElement>(null)
   const envDropdownRef = useRef<HTMLDivElement>(null)
+  const avatarMenuRef = useRef<HTMLDivElement>(null)
+
+  // Mock user data - replace with actual user data from auth context
+  const user = {
+    email: 'user@example.com',
+    role: 'org owner',
+    plan: 'Pro'
+  }
 
   useEffect(() => {
     if (variant === 'canvas' && projectId) {
@@ -51,6 +72,9 @@ export default function AppHeader({
       }
       if (envDropdownRef.current && !envDropdownRef.current.contains(event.target as Node)) {
         setEnvDropdownOpen(false)
+      }
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target as Node)) {
+        setAvatarMenuOpen(false)
       }
     }
 
@@ -77,6 +101,16 @@ export default function AppHeader({
   const handleTabClick = (tab: TabType) => {
     setCurrentTab(tab)
     onTabChange?.(tab)
+  }
+
+  const handleLogout = () => {
+    authApi.logout()
+    router.push('/auth/login')
+  }
+
+  const handleDarkThemeToggle = () => {
+    setDarkTheme(!darkTheme)
+    // TODO: Implement actual dark theme toggle
   }
 
   const environments = ['Production', 'Staging', 'Development']
@@ -224,11 +258,91 @@ export default function AppHeader({
               <span className="text-sm text-gray-600">32</span>
             </button>
 
-            {/* User avatar */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center overflow-hidden ring-2 ring-emerald-400 ring-offset-2 ring-offset-white">
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+            {/* User avatar with dropdown */}
+            <div className="relative" ref={avatarMenuRef}>
+              <button
+                onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center overflow-hidden ring-2 ring-indigo-300 ring-offset-2 ring-offset-white hover:ring-indigo-400 transition-all cursor-pointer"
+              >
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </button>
+
+              {/* Avatar Menu Dropdown */}
+              {avatarMenuOpen && (
+                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {/* Header section */}
+                  <div className="p-4 pb-3">
+                    {/* Plan badge */}
+                    <span className="inline-block px-2.5 py-0.5 bg-cyan-500 text-white text-xs font-medium rounded">
+                      {user.plan}
+                    </span>
+                    
+                    {/* Avatar */}
+                    <div className="flex justify-center mt-4">
+                      <div className="w-16 h-16 rounded-full bg-indigo-500 flex items-center justify-center">
+                        <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* User info */}
+                    <div className="text-center mt-3">
+                      <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                      <p className="text-xs text-gray-500">{user.role}</p>
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  <div className="border-t border-gray-100">
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span>Account settings</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Settings className="w-4 h-4 text-gray-400" />
+                      <span>Org settings</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <BarChart3 className="w-4 h-4 text-gray-400" />
+                      <span>Account usage</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-100">
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <LayoutGrid className="w-4 h-4 text-gray-400" />
+                      <span>Documentation</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <HelpCircle className="w-4 h-4 text-gray-400" />
+                      <span>Support</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-100">
+                    <button 
+                      onClick={handleDarkThemeToggle}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Moon className="w-4 h-4 text-gray-400" />
+                      <span>Dark theme</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-100">
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -236,4 +350,3 @@ export default function AppHeader({
     </header>
   )
 }
-
