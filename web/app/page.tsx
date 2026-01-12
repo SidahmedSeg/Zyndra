@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjectsStore } from '@/stores/projectsStore'
 import { apiClient } from '@/lib/api/client'
+import AppHeader from '@/components/Header/AppHeader'
 import CreateProjectDialog from '@/components/Header/CreateProjectDialog'
-import { Plus, UserPlus, Settings, Bell } from 'lucide-react'
+import { Plus, UserPlus, Settings } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -64,36 +65,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="flex items-center justify-between h-14">
-            {/* Logo */}
-            <div className="flex items-center">
-              <img src="/logo-zyndra.svg" alt="Zyndra" className="h-5" />
-            </div>
-            
-            {/* Right side */}
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-sm text-gray-600 hover:text-gray-900">
-                Documentation
-              </a>
-              <div className="w-px h-5 bg-gray-300" />
-              <button className="relative p-1 text-gray-400 hover:text-gray-600">
-                <Bell className="w-5 h-5" strokeWidth={1.5} />
-                <span className="absolute -top-1 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-medium text-gray-600 bg-white border border-gray-300 rounded-full">
-                  32
-                </span>
-              </button>
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center ring-2 ring-emerald-400 ring-offset-2 ring-offset-white">
-                  <span className="text-white text-xs font-medium">👤</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Unified Header */}
+      <AppHeader variant="projects" />
       
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-8 py-12">

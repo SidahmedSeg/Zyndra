@@ -2,19 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, ChevronDown, ChevronRight, Database, Container, Settings, Loader2 } from 'lucide-react'
+import { ChevronRight, Database, Container, Settings, Loader2 } from 'lucide-react'
 import { useProjectsStore } from '@/stores/projectsStore'
 import { gitApi, type GitRepository, type GitHubAppInstallation } from '@/lib/api/git'
 import { useServicesStore } from '@/stores/servicesStore'
 import { servicesApi } from '@/lib/api/services'
-
-type TabType = 'architecture' | 'logs' | 'settings'
+import AppHeader from '@/components/Header/AppHeader'
 
 export default function CreateProjectPage() {
   const router = useRouter()
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [projectId, setProjectId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>('architecture')
   const { createProject } = useProjectsStore()
 
   // GitHub App state
@@ -165,89 +163,7 @@ export default function CreateProjectPage() {
       backgroundSize: '24px 24px'
     }}>
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="px-6">
-          <div className="flex items-center justify-between h-14">
-            {/* Left side - Logo and navigation */}
-            <div className="flex items-center gap-4">
-              <a href="/" className="flex-shrink-0">
-                <img src="/logo-zyndra.svg" alt="Zyndra" className="h-[18px] w-auto" />
-              </a>
-              
-              <button className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors">
-                <span>Project name</span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
-              
-              <span className="text-gray-300">/</span>
-              
-              <button className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors">
-                <span>Production</span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-
-            {/* Right side - Tabs and user */}
-            <div className="flex items-center gap-6 h-full">
-              {/* Navigation tabs */}
-              <nav className="flex items-center h-full">
-                <button
-                  onClick={() => setActiveTab('architecture')}
-                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
-                    activeTab === 'architecture' 
-                      ? 'text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Architecture
-                  {activeTab === 'architecture' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('logs')}
-                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
-                    activeTab === 'logs' 
-                      ? 'text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Logs
-                  {activeTab === 'logs' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('settings')}
-                  className={`h-full px-4 text-sm transition-colors relative flex items-center ${
-                    activeTab === 'settings' 
-                      ? 'text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Settings
-                  {activeTab === 'settings' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
-                  )}
-                </button>
-              </nav>
-
-              {/* Notification bell */}
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors">
-                <Bell className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600">32</span>
-              </button>
-
-              {/* User avatar */}
-              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center overflow-hidden border-2 border-emerald-600">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader variant="canvas" projectId={projectId || undefined} />
 
       {/* Main Content */}
       <main className="flex items-center justify-center min-h-[calc(100vh-73px)]">
