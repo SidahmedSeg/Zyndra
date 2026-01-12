@@ -8,6 +8,9 @@ const getApiBaseURL = (): string => {
   
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
+    if (hostname === 'zyndra.app') {
+      return 'https://api.zyndra.app'
+    }
     if (hostname === 'zyndra.armonika.cloud') {
       return 'https://api.zyndra.armonika.cloud'
     }

@@ -2,10 +2,28 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiClient } from '@/lib/api/client'
 import { authApi } from '@/lib/api/auth'
 
 type Step = 'email' | 'otp' | 'profile'
+
+// Get API base URL
+const getApiBaseURL = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+  
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'zyndra.app') {
+      return 'https://api.zyndra.app'
+    }
+    if (hostname === 'zyndra.armonika.cloud') {
+      return 'https://api.zyndra.armonika.cloud'
+    }
+  }
+  
+  return 'http://localhost:8080'
+}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -38,7 +56,8 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/otp/send`, {
+      const apiUrl = getApiBaseURL()
+      const response = await fetch(`${apiUrl}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, purpose: 'registration' }),
@@ -107,7 +126,8 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/otp/verify`, {
+      const apiUrl = getApiBaseURL()
+      const response = await fetch(`${apiUrl}/auth/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: otpCode, purpose: 'registration' }),
@@ -147,7 +167,8 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register/complete`, {
+      const apiUrl = getApiBaseURL()
+      const response = await fetch(`${apiUrl}/auth/register/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name, password, confirm_password: confirmPassword }),

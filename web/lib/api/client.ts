@@ -11,8 +11,12 @@ const getApiBaseURL = (): string => {
   
   // Fallback: if running in browser, try to infer from current origin
   if (typeof window !== 'undefined') {
-    // If frontend is on zyndra.armonika.cloud, backend should be api.zyndra.armonika.cloud
     const hostname = window.location.hostname
+    // Handle zyndra.app domain
+    if (hostname === 'zyndra.app') {
+      return 'https://api.zyndra.app'
+    }
+    // Handle legacy zyndra.armonika.cloud domain
     if (hostname === 'zyndra.armonika.cloud') {
       return 'https://api.zyndra.armonika.cloud'
     }
