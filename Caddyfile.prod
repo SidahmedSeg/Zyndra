@@ -1,22 +1,54 @@
 {
-    email admin@armonika.cloud
+    email admin@zyndra.app
 }
 
-# Frontend
-zyndra.armonika.cloud {
+# ==============================================
+# PRIMARY DOMAIN: zyndra.app
+# ==============================================
+
+# Frontend - Main App
+zyndra.app, www.zyndra.app {
     reverse_proxy http://127.0.0.1:3000
     encode gzip
 }
 
 # Backend API
-api.zyndra.armonika.cloud {
+api.zyndra.app {
     reverse_proxy http://127.0.0.1:8080
     encode gzip
     # CORS headers are handled by the backend application
 }
 
-# Prometheus (internal only, optional)
-# prometheus.zyndra.armonika.cloud {
+# User Services (wildcard) - For deployed apps
+*.up.zyndra.app {
+    # For now, route to backend which will handle k8s routing
+    # When k8s is fully set up, this will route to the k8s ingress
+    reverse_proxy http://127.0.0.1:8080
+    encode gzip
+}
+
+# ==============================================
+# LEGACY DOMAIN: armonika.cloud (keep for backward compatibility)
+# ==============================================
+
+# Frontend (legacy)
+zyndra.armonika.cloud {
+    redir https://zyndra.app{uri} permanent
+}
+
+# Backend API (legacy)
+api.zyndra.armonika.cloud {
+    redir https://api.zyndra.app{uri} permanent
+}
+
+# ==============================================
+# INTERNAL SERVICES (Optional - uncomment if needed)
+# ==============================================
+
+# Prometheus (internal only)
+# prometheus.zyndra.app {
+#     basicauth * {
+#         admin $2a$14$... # Use: caddy hash-password
+#     }
 #     reverse_proxy http://127.0.0.1:9090
 # }
-
