@@ -67,6 +67,10 @@ services:
       K8S_CERT_ISSUER: ${K8S_CERT_ISSUER:-letsencrypt-prod}
       K8S_IN_CLUSTER: ${K8S_IN_CLUSTER:-false}
       K8S_KUBECONFIG_PATH: ${K8S_KUBECONFIG_PATH:-}
+      # Mailtrap Email
+      MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN:-}
+      MAILTRAP_SENDER_EMAIL: ${MAILTRAP_SENDER_EMAIL:-noreply@zyndra.app}
+      MAILTRAP_SENDER_NAME: ${MAILTRAP_SENDER_NAME:-Zyndra}
     ports:
       - "127.0.0.1:8080:8080"  # Only accessible from localhost/Caddy
     healthcheck:
