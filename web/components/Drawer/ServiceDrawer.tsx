@@ -199,7 +199,7 @@ function DeploymentTab({ service, deployment, deployments }: { service: Service;
                   </span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {deployment.created_at ? formatTimeAgo(deployment.created_at) : 'Just now'} via {deployment.trigger || 'Manual'}
+                  {deployment.created_at ? formatTimeAgo(deployment.created_at) : 'Just now'} via {deployment.triggered_by || 'manual'}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -320,7 +320,7 @@ function VariablesTab({ service }: { service: Service }) {
   const loadVariables = async () => {
     try {
       setLoading(true)
-      const vars = await envVarsApi.list(service.id)
+      const vars = await envVarsApi.listByService(service.id)
       setVariables(vars)
     } catch (error) {
       console.error('Failed to load variables:', error)
@@ -339,6 +339,7 @@ function VariablesTab({ service }: { service: Service }) {
           type: 'env_var_add',
           field: newKey,
           newValue: newValue,
+          description: `Added variable ${newKey}`,
         })
         
         await loadVariables()
@@ -361,6 +362,7 @@ function VariablesTab({ service }: { service: Service }) {
           type: 'env_var_update',
           field: key,
           newValue: editValue,
+          description: `Updated variable ${key}`,
         })
         
         await loadVariables()
@@ -380,6 +382,7 @@ function VariablesTab({ service }: { service: Service }) {
       addChange(service.id, {
         type: 'env_var_delete',
         field: key,
+        description: `Deleted variable ${key}`,
       })
       
       await loadVariables()
@@ -514,7 +517,7 @@ function VariablesTab({ service }: { service: Service }) {
                     )}
                   </button>
                   <button 
-                    onClick={() => { setEditingVar(variable.key); setEditValue(variable.value) }}
+                    onClick={() => { setEditingVar(variable.key); setEditValue(variable.value || '') }}
                     className="p-1 hover:bg-gray-100 rounded transition-colors"
                   >
                     <MoreVertical className="w-4 h-4 text-gray-400" />
@@ -749,6 +752,7 @@ function SourceSettings({ service }: { service: Service }) {
         field: 'rootDir',
         oldValue: original,
         newValue: value,
+        description: `Changed root directory to ${value}`,
       })
     }
   }
@@ -763,6 +767,7 @@ function SourceSettings({ service }: { service: Service }) {
         field: 'branch',
         oldValue: original,
         newValue: value,
+        description: `Changed branch to ${value}`,
       })
     }
   }
@@ -868,7 +873,7 @@ function NetworkSettings({ service }: { service: Service }) {
   const loadDomains = async () => {
     try {
       setLoading(true)
-      const data = await customDomainsApi.list(service.id)
+      const data = await customDomainsApi.listByService(service.id)
       setDomains(data)
     } catch (error) {
       console.error('Failed to load domains:', error)
@@ -891,12 +896,13 @@ function NetworkSettings({ service }: { service: Service }) {
     }
     
     try {
-      await customDomainsApi.add(service.id, newDomain)
+      await customDomainsApi.create(service.id, { domain: newDomain })
       
       addChange(service.id, {
         type: 'custom_domain_add',
         field: 'customDomains',
         newValue: newDomain,
+        description: `Added custom domain ${newDomain}`,
       })
       
       await loadDomains()
@@ -911,12 +917,13 @@ function NetworkSettings({ service }: { service: Service }) {
 
   const handleRemoveDomain = async (domainId: string, domainName: string) => {
     try {
-      await customDomainsApi.remove(domainId)
+      await customDomainsApi.delete(service.id, domainId)
       
       addChange(service.id, {
         type: 'custom_domain_remove',
         field: 'customDomains',
         oldValue: domainName,
+        description: `Removed custom domain ${domainName}`,
       })
       
       await loadDomains()
@@ -1084,6 +1091,7 @@ function ResourceSettings({ service }: { service: Service }) {
         field: 'cpu',
         oldValue: original,
         newValue: value,
+        description: `Changed CPU to ${value} vCPU`,
       })
     }
   }
@@ -1097,6 +1105,7 @@ function ResourceSettings({ service }: { service: Service }) {
         field: 'memory',
         oldValue: original,
         newValue: value,
+        description: `Changed memory to ${value}`,
       })
     }
   }
