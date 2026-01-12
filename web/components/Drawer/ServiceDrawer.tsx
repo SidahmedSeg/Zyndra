@@ -321,9 +321,11 @@ function VariablesTab({ service }: { service: Service }) {
     try {
       setLoading(true)
       const vars = await envVarsApi.listByService(service.id)
-      setVariables(vars)
+      // Ensure we always have an array
+      setVariables(Array.isArray(vars) ? vars : [])
     } catch (error) {
       console.error('Failed to load variables:', error)
+      setVariables([]) // Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -471,13 +473,13 @@ function VariablesTab({ service }: { service: Service }) {
             No environment variables defined yet
           </div>
         ) : (
-          variables.map((variable, index) => (
+          variables.filter(v => v && v.key).map((variable, index) => (
             <div 
-              key={variable.key} 
+              key={variable.key || index} 
               className={`flex items-center gap-3 p-3 bg-white ${index !== variables.length - 1 ? 'border-b border-gray-100' : ''}`}
             >
               <span className="font-mono text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{'{}'}</span>
-              <span className="text-sm font-medium text-gray-900 font-mono min-w-[150px]">{variable.key}</span>
+              <span className="text-sm font-medium text-gray-900 font-mono min-w-[150px]">{variable.key || 'UNKNOWN'}</span>
               
               {editingVar === variable.key ? (
                 <div className="flex-1 flex items-center gap-2">
