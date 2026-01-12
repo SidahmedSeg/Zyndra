@@ -1,8 +1,8 @@
 # Click to Deploy - Project Status
 
-**Last Updated:** 2026-01-11  
-**Current Phase:** 🚧 Phase 8: Zyndra Stack Migration (In Progress)  
-**Project Status:** ✅ **PRODUCTION DEPLOYED** | 🔄 **STACK MIGRATION IN PROGRESS**
+**Last Updated:** 2026-01-12  
+**Current Phase:** 🚧 Phase 9: Full Deployment Flow & UI (In Progress)  
+**Project Status:** ✅ **PRODUCTION DEPLOYED** | 🔄 **DEPLOYMENT FLOW IMPLEMENTATION**
 
 ---
 
@@ -160,6 +160,133 @@
 - Aggregated metrics per service (all pods)
 - Fallback to mock metrics when k8s is disabled
 - Human-readable values (e.g., "256Mi", "500m")
+
+### Phase 8.7: OTP Email Verification - ✅ COMPLETE
+
+**Database Migrations:**
+- ✅ `005_otp_codes.up.sql` - OTP codes table for email verification
+
+**Backend:**
+- ✅ `internal/store/otp_codes.go` - OTP CRUD operations
+- ✅ `internal/api/otp_handlers.go` - OTP send/verify endpoints
+- ✅ `internal/email/mailtrap.go` - Mailtrap email client
+
+**API Endpoints:**
+- ✅ `POST /auth/otp/send` - Send OTP to email
+- ✅ `POST /auth/otp/verify` - Verify OTP code
+- ✅ `POST /auth/register/complete` - Complete registration after OTP
+
+**Frontend:**
+- ✅ Multi-step registration flow (Email → OTP → Profile)
+- ✅ OTP input with auto-focus and paste support
+
+---
+
+## 🚀 Phase 9: Full Deployment Flow & UI
+
+**Goal:** Complete end-to-end deployment workflow with change detection, floating deploy bar, and database services
+
+### Phase 9.1: Change Detection System - ✅ COMPLETE
+
+**Frontend Store:**
+- ✅ `web/stores/changesStore.ts` - Track all pending changes per service
+- ✅ Change types: `root_dir`, `branch`, `env_var`, `resource`, `custom_domain`
+- ✅ Aggregate changes count per service
+
+**Floating Deploy Bar:**
+- ✅ `web/components/Canvas/FloatingDeployBar.tsx` - Shows "N changes - Deploy now"
+- ✅ Appears when changes > 0
+- ✅ Triggers deployment with change payload
+- ✅ Expandable to show change details
+- ✅ Individual change removal
+- ✅ Discard all changes option
+
+### Phase 9.2: GitHub Repo Service Config Panel - ✅ COMPLETE
+
+**Settings Tab:**
+- ✅ Repository section (disconnect, attach new)
+- ✅ Build config (root directory, branch selector with dropdown)
+- ✅ Resource limits (vCPU, RAM selector with presets)
+- ✅ Network section (auto URL display, custom domains with validation)
+- ✅ CNAME validation instructions
+
+**Variables Tab:**
+- ✅ Add/edit/delete environment variables
+- ✅ Each change tracked in changesStore
+- ✅ Secret masking with reveal toggle
+- ✅ Copy to clipboard functionality
+- ✅ Inline editing support
+
+**Deployment Tab:**
+- ✅ Deployment status timeline
+- ✅ Latest deployment card with commit info
+- ✅ Status banner (success/failed/deploying)
+- ✅ Deployment history with expand/collapse
+- ✅ Time ago formatting
+
+**Metrics Tab:**
+- ✅ CPU chart (step line style)
+- ✅ Memory chart (step line style)
+- ✅ Network chart (dual line - in/out)
+
+### Phase 9.3: Database Service - ✅ COMPLETE
+
+**Canvas Integration:**
+- ✅ Right-click context menu → Database option with submenu
+- ✅ Database type selector (PostgreSQL, MongoDB, Redis)
+- ✅ Auto-create linked Volume node on database creation
+- ✅ Engine icons (🐘 PostgreSQL, 🍃 MongoDB, ⚡ Redis)
+
+**Database Node:**
+- ✅ Enhanced visual representation with engine icon
+- ✅ Status indicator (provisioning, active, error)
+- ✅ Internal hostname display
+- ✅ Size and storage info
+- ✅ Selection border color (#4F46E5)
+
+**Database Config Panel:**
+
+| Tab | Features |
+|-----|----------|
+| **Deployment** | ✅ Status banner, restart/stop buttons |
+| **Database** | ✅ Credentials (host, port, user, password, connection URL) with copy/reveal, Tables placeholder |
+| **Settings** | ✅ DB source (read-only), Public URL toggle with warning, Resource info, Danger zone |
+
+### Phase 9.4: Deployment Visual Progress - ✅ COMPLETE
+
+**Node Progress States:**
+- ✅ `queued` / `initializing` - Setting up build environment
+- ✅ `building` - Building Docker image
+- ✅ `pushing` - Pushing to registry
+- ✅ `deploying` - Creating k8s resources
+- ✅ `success` / `online` - Successfully deployed
+- ✅ `failed` - Deployment failed
+
+**Visual Indicators:**
+- ✅ Progress bar with stage checkmarks
+- ✅ Animated spinner on current stage
+- ✅ Status badge with color coding
+- ✅ Elapsed time counter
+- ✅ Failed state with red banner
+
+### Phase 9.5: Implementation Checklist - ✅ COMPLETE
+
+**Frontend Components:**
+- ✅ `web/stores/changesStore.ts` - Change tracking store
+- ✅ `web/components/Canvas/FloatingDeployBar.tsx` - Deploy bar
+- ✅ `web/components/Drawer/ServiceDrawer.tsx` - Enhanced with all tabs
+- ✅ `web/components/Drawer/DatabaseDrawer.tsx` - New tabs (Deployment, Database, Settings)
+- ✅ `web/components/Canvas/nodes/ServiceNode.tsx` - Visual deployment progress
+- ✅ `web/components/Canvas/nodes/DatabaseNode.tsx` - Enhanced with icons
+- ✅ `web/components/Canvas/ContextMenu.tsx` - Database type submenu
+
+**Backend APIs:**
+- ✅ `PATCH /services/{id}` - Update service config (name, port, branch, root_dir)
+- ✅ `ServiceResponse` includes `repo_owner`, `repo_name`, `branch`, `root_dir`
+- ✅ Git source updates via service update endpoint
+- ✅ `GET /databases/{id}/credentials` - Get connection credentials (existing)
+
+---
 
 ### Phase 8.6: k3s Cluster Setup Scripts - ✅ COMPLETE
 

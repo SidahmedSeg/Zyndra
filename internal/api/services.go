@@ -39,6 +39,21 @@ type ServiceResponse struct {
 	Status              string  `json:"status"`
 	InstanceSize        string  `json:"instance_size"`
 	Port                int     `json:"port"`
+	
+	// Git source info (populated from git_sources table)
+	RepoOwner *string `json:"repo_owner,omitempty"`
+	RepoName  *string `json:"repo_name,omitempty"`
+	Branch    *string `json:"branch,omitempty"`
+	RootDir   *string `json:"root_dir,omitempty"`
+	
+	// Resource limits
+	CPULimit    *string `json:"cpu_limit,omitempty"`
+	MemoryLimit *string `json:"memory_limit,omitempty"`
+	
+	// Build config
+	StartCommand *string `json:"start_command,omitempty"`
+	BuildCommand *string `json:"build_command,omitempty"`
+	
 	OpenStackInstanceID *string `json:"openstack_instance_id,omitempty"`
 	OpenStackFIPID      *string `json:"openstack_fip_id,omitempty"`
 	OpenStackFIPAddress *string `json:"openstack_fip_address,omitempty"`
@@ -96,6 +111,26 @@ func toServiceResponse(s *store.Service) ServiceResponse {
 	return resp
 }
 
+// toServiceResponseWithGitSource adds git source info to a service response
+func (h *ServiceHandler) toServiceResponseWithGitSource(ctx context.Context, s *store.Service) ServiceResponse {
+	resp := toServiceResponse(s)
+	
+	// Fetch git source info if available
+	if s.GitSourceID.Valid {
+		gitSource, err := h.Store.GetGitSourceByService(ctx, s.ID)
+		if err == nil && gitSource != nil {
+			resp.RepoOwner = &gitSource.RepoOwner
+			resp.RepoName = &gitSource.RepoName
+			resp.Branch = &gitSource.Branch
+			if gitSource.RootDir.Valid {
+				resp.RootDir = &gitSource.RootDir.String
+			}
+		}
+	}
+	
+	return resp
+}
+
 // ListServices handles GET /projects/:id/services
 func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	projectIDStr := chi.URLParam(r, "id")
@@ -130,12 +165,12 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert store.Service to ServiceResponse
+	// Convert store.Service to ServiceResponse with git source info
 	response := make([]ServiceResponse, 0)
 	if services != nil {
 		for _, s := range services {
 			if s != nil {
-				response = append(response, toServiceResponse(s))
+				response = append(response, h.toServiceResponseWithGitSource(r.Context(), s))
 			}
 		}
 	}
@@ -272,7 +307,7 @@ func (h *ServiceHandler) CreateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteCreated(w, toServiceResponse(createdService))
+	WriteCreated(w, h.toServiceResponseWithGitSource(r.Context(), createdService))
 }
 
 // GetService handles GET /services/:id
@@ -314,7 +349,7 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, service)
+	WriteJSON(w, http.StatusOK, h.toServiceResponseWithGitSource(r.Context(), service))
 }
 
 // UpdateService handles PATCH /services/:id
@@ -395,6 +430,29 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update git source if branch or root_dir provided
+	if req.Branch != nil || req.RootDir != nil {
+		gitSource, err := h.Store.GetGitSourceByService(r.Context(), id)
+		if err != nil {
+			WriteError(w, domain.ErrDatabase.WithError(err))
+			return
+		}
+		
+		if gitSource != nil {
+			if req.Branch != nil {
+				gitSource.Branch = *req.Branch
+			}
+			if req.RootDir != nil {
+				gitSource.RootDir = sql.NullString{String: *req.RootDir, Valid: *req.RootDir != ""}
+			}
+			
+			if err := h.Store.UpdateGitSource(r.Context(), gitSource.ID, gitSource); err != nil {
+				WriteError(w, domain.ErrDatabase.WithError(err))
+				return
+			}
+		}
+	}
+
 	// Fetch updated service
 	updatedService, err := h.Store.GetService(r.Context(), id)
 	if err != nil {
@@ -402,7 +460,7 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, updatedService)
+	WriteJSON(w, http.StatusOK, h.toServiceResponseWithGitSource(r.Context(), updatedService))
 }
 
 // UpdateServicePosition handles PATCH /services/:id/position
@@ -469,7 +527,7 @@ func (h *ServiceHandler) UpdateServicePosition(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, updatedService)
+	WriteJSON(w, http.StatusOK, h.toServiceResponseWithGitSource(r.Context(), updatedService))
 }
 
 // DeleteService handles DELETE /services/:id

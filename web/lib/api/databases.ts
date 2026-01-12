@@ -2,6 +2,7 @@ import { apiClient } from './client'
 
 export interface Database {
   id: string
+  project_id?: string
   service_id?: string
   engine: string
   version?: string
@@ -12,6 +13,7 @@ export interface Database {
   internal_ip?: string
   port?: number
   username?: string
+  password?: string
   database_name?: string
   connection_url?: string
   status: string

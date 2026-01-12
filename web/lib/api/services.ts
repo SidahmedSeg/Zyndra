@@ -9,6 +9,22 @@ export interface Service {
   status: string
   instance_size: string
   port?: number
+  
+  // Git source info
+  repo_owner?: string
+  repo_name?: string
+  branch?: string
+  root_dir?: string
+  
+  // Resource limits
+  cpu_limit?: string
+  memory_limit?: string
+  
+  // Build config
+  start_command?: string
+  build_command?: string
+  
+  // Infrastructure
   openstack_instance_id?: string
   openstack_fip_id?: string
   openstack_fip_address?: string
@@ -16,8 +32,14 @@ export interface Service {
   subdomain?: string
   generated_url?: string
   current_image_tag?: string
+  
+  // Canvas position
   canvas_x?: number
   canvas_y?: number
+  
+  // Deployment status
+  deployment_status?: 'idle' | 'initializing' | 'building' | 'pushing' | 'deploying' | 'post_deploy' | 'online' | 'failed'
+  
   created_at: string
   updated_at: string
 }
@@ -44,6 +66,12 @@ export interface UpdateServiceRequest {
   name?: string
   instance_size?: string
   port?: number
+  branch?: string
+  root_dir?: string
+  cpu_limit?: string
+  memory_limit?: string
+  start_command?: string
+  build_command?: string
 }
 
 export interface UpdateServicePositionRequest {

@@ -24,11 +24,13 @@ import VolumeNode from './nodes/VolumeNode'
 import ServiceDrawer from '../Drawer/ServiceDrawer'
 import DatabaseDrawer from '../Drawer/DatabaseDrawer'
 import VolumeDrawer from '../Drawer/VolumeDrawer'
-import ContextMenu from './ContextMenu'
+import ContextMenu, { type DatabaseType } from './ContextMenu'
 import CanvasHeader from './CanvasHeader'
 import RepoSelectionModal from './RepoSelectionModal'
+import FloatingDeployBar from './FloatingDeployBar'
 import type { GitRepository } from '@/lib/api/git'
 import { servicesApi } from '@/lib/api/services'
+import { useChangesStore } from '@/stores/changesStore'
 
 const nodeTypes = {
   service: ServiceNode,
@@ -243,13 +245,15 @@ export default function Canvas({ projectId }: CanvasProps) {
 
   // Handle adding a node from context menu
   const handleAddNode = useCallback(
-    async (type: 'github-repo' | 'database' | 'volume') => {
+    async (type: 'github-repo' | 'database' | 'volume', dbType?: DatabaseType) => {
       if (!contextMenu || !reactFlowInstance) return
 
       const position = reactFlowInstance.screenToFlowPosition({
         x: contextMenu.x,
         y: contextMenu.y,
       })
+
+      setContextMenu(null)
 
       if (type === 'github-repo') {
         // Open repo selection modal
@@ -260,23 +264,36 @@ export default function Canvas({ projectId }: CanvasProps) {
 
       try {
         if (type === 'database') {
+          // Create database with selected type
           const database = await createDatabase(projectId, {
-            engine: 'postgresql',
+            engine: dbType || 'postgresql',
             size: 'small',
           })
+          
+          // Auto-create a linked volume for the database
+          const volume = await createVolume(projectId, {
+            name: `${database.engine}-data`,
+            size_mb: 1024,
+          })
+          
+          // Refresh to show new nodes
+          await fetchDatabases(projectId)
+          await fetchVolumes(projectId)
+          
           setSelectedDatabase(database)
         } else if (type === 'volume') {
           const volume = await createVolume(projectId, {
             name: 'New Volume',
             size_mb: 1024,
           })
+          await fetchVolumes(projectId)
           setSelectedVolume(volume)
         }
       } catch (error) {
         console.error('Failed to create node:', error)
       }
     },
-    [contextMenu, reactFlowInstance, projectId, createDatabase, createVolume, setSelectedDatabase, setSelectedVolume]
+    [contextMenu, reactFlowInstance, projectId, createDatabase, createVolume, setSelectedDatabase, setSelectedVolume, fetchDatabases, fetchVolumes]
   )
 
   // Handle repo selection from modal
@@ -368,10 +385,20 @@ export default function Canvas({ projectId }: CanvasProps) {
         projectId={projectId}
       />
 
+      {/* Floating Deploy Bar */}
+      {selectedService && (
+        <FloatingDeployBar
+          serviceId={selectedService.id}
+          serviceName={selectedService.name}
+          onDeployComplete={() => fetchServices(projectId)}
+        />
+      )}
+
       <ServiceDrawer
         service={selectedService}
         isOpen={!!selectedService}
         onClose={() => setSelectedService(null)}
+        initialTab="settings"
       />
 
       <DatabaseDrawer

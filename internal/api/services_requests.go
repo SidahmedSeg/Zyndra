@@ -28,6 +28,18 @@ type UpdateServiceRequest struct {
 	InstanceSize *string `json:"instance_size,omitempty" validate:"omitempty,oneof=small medium large xlarge"`
 	Port         *int    `json:"port,omitempty" validate:"omitempty,min=1,max=65535"`
 	Status       *string `json:"status,omitempty" validate:"omitempty,oneof=pending provisioning building deploying live failed stopped"`
+	
+	// Git source updates
+	Branch  *string `json:"branch,omitempty" validate:"omitempty,min=1,max=255"`
+	RootDir *string `json:"root_dir,omitempty" validate:"omitempty,max=500"`
+	
+	// Resource limits
+	CPULimit    *string `json:"cpu_limit,omitempty" validate:"omitempty"`
+	MemoryLimit *string `json:"memory_limit,omitempty" validate:"omitempty"`
+	
+	// Build config
+	StartCommand *string `json:"start_command,omitempty" validate:"omitempty,max=1000"`
+	BuildCommand *string `json:"build_command,omitempty" validate:"omitempty,max=1000"`
 }
 
 // UpdateServicePositionRequest represents the request body for updating canvas position
