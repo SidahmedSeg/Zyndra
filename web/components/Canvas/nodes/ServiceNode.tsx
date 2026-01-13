@@ -107,9 +107,8 @@ function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
       <div className="px-6 py-5">
         {/* Header with GitHub icon and repo name */}
         <div className="flex items-start gap-4 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gray-900 flex items-center justify-center flex-shrink-0">
-            <img src="/github-icon.svg" alt="" className="w-6 h-6 invert" />
-          </div>
+          {/* GitHub icon - just the logo, no background */}
+          <img src="/github-icon.svg" alt="" className="w-10 h-10 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-lg text-gray-900">{data.label}</div>
             <div className="text-sm text-gray-400">{displayUrl}</div>

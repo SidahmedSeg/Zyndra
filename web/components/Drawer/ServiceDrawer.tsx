@@ -919,7 +919,7 @@ function NetworkSettings({ service }: { service: Service }) {
 
   const handleRemoveDomain = async (domainId: string, domainName: string) => {
     try {
-      await customDomainsApi.delete(service.id, domainId)
+      await customDomainsApi.delete(domainId)
       
       addChange(service.id, {
         type: 'custom_domain_remove',

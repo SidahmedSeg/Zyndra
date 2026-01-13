@@ -30,12 +30,11 @@ export const customDomainsApi = {
   create: (serviceId: string, data: CreateCustomDomainRequest) =>
     apiClient.post<CustomDomain>(`/services/${serviceId}/domains`, data),
 
-  // Verify domain DNS configuration
-  verify: (serviceId: string, domainId: string) =>
-    apiClient.post<VerifyDomainResponse>(`/services/${serviceId}/domains/${domainId}/verify`, {}),
+  // Verify domain DNS configuration (backend uses /domains/{id}/verify)
+  verify: (domainId: string) =>
+    apiClient.post<VerifyDomainResponse>(`/domains/${domainId}/verify`, {}),
 
-  // Delete a custom domain
-  delete: (serviceId: string, domainId: string) =>
-    apiClient.delete(`/services/${serviceId}/domains/${domainId}`),
+  // Delete a custom domain (backend uses /domains/{id})
+  delete: (domainId: string) =>
+    apiClient.delete(`/domains/${domainId}`),
 }
-
