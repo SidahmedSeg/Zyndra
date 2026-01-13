@@ -35,7 +35,7 @@ type Config struct {
 	GitHubRedirectURL  string `envconfig:"GITHUB_REDIRECT_URL" default:"http://localhost:8080/api/git/callback/github"`
 
 	// GitHub App (for per-repository access)
-	GitHubAppID               int64  `envconfig:"GITHUB_APP_ID"`
+	GitHubAppID               int64  `envconfig:"GITHUB_APP_ID" default:"0"`
 	GitHubAppClientID         string `envconfig:"GITHUB_APP_CLIENT_ID"`
 	GitHubAppClientSecret     string `envconfig:"GITHUB_APP_CLIENT_SECRET"`
 	GitHubAppPrivateKeyBase64 string `envconfig:"GITHUB_APP_PRIVATE_KEY_BASE64"`
