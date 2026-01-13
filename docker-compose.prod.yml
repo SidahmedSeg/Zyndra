@@ -33,49 +33,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Only override specific values not in .env.production or with fixed values
       PORT: 8080
-      BASE_URL: ${BASE_URL:-https://api.zyndra.armonika.cloud}
-      DISABLE_AUTH: ${DISABLE_AUTH:-true}
-      REGISTRY_URL: ${REGISTRY_URL:-https://registry.example.com}
-      REGISTRY_USERNAME: ${REGISTRY_USERNAME:-user}
-      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-password}
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-ed7f219ca3afd5838ab10186dec58a9cc65ce34277ed47ca1364138910bc1bd1}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://zyndra.armonika.cloud}
-      USE_MOCK_INFRA: ${USE_MOCK_INFRA:-true}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      GITHUB_REDIRECT_URL: ${GITHUB_REDIRECT_URL}
-      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
-      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
-      GITLAB_REDIRECT_URL: ${GITLAB_REDIRECT_URL:-}
-      GITLAB_BASE_URL: ${GITLAB_BASE_URL:-}
-      # GitHub App (for per-repository access)
-      GITHUB_APP_ID: ${GITHUB_APP_ID:-0}
-      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
-      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
-      GITHUB_APP_PRIVATE_KEY_BASE64: ${GITHUB_APP_PRIVATE_KEY_BASE64:-}
-      GITHUB_APP_NAME: ${GITHUB_APP_NAME:-}
-      GITHUB_APP_CALLBACK_URL: ${GITHUB_APP_CALLBACK_URL:-}
-      # Custom JWT Auth
-      USE_CUSTOM_AUTH: ${USE_CUSTOM_AUTH:-false}
-      JWT_SECRET: ${JWT_SECRET:-}
-      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
-      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-168h}
-      # Kubernetes
-      USE_K8S: ${USE_K8S:-false}
-      K8S_BASE_DOMAIN: ${K8S_BASE_DOMAIN:-up.zyndra.app}
-      K8S_INGRESS_CLASS: ${K8S_INGRESS_CLASS:-traefik}
-      K8S_CERT_ISSUER: ${K8S_CERT_ISSUER:-letsencrypt-prod}
-      K8S_IN_CLUSTER: ${K8S_IN_CLUSTER:-false}
       K8S_KUBECONFIG_PATH: /etc/rancher/k3s/k3s.yaml
-      # BuildKit
       BUILDKIT_ADDRESS: unix:///var/run/buildkit/buildkitd.sock
       BUILD_DIR: /tmp/click-deploy-builds
-      # Mailtrap Email
-      MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN:-}
-      MAILTRAP_SENDER_EMAIL: ${MAILTRAP_SENDER_EMAIL:-noreply@zyndra.app}
-      MAILTRAP_SENDER_NAME: ${MAILTRAP_SENDER_NAME:-Zyndra}
     volumes:
       - /var/run/buildkit:/var/run/buildkit
       - /etc/rancher/k3s/k3s.yaml:/etc/rancher/k3s/k3s.yaml:ro
