@@ -66,11 +66,18 @@ services:
       K8S_INGRESS_CLASS: ${K8S_INGRESS_CLASS:-traefik}
       K8S_CERT_ISSUER: ${K8S_CERT_ISSUER:-letsencrypt-prod}
       K8S_IN_CLUSTER: ${K8S_IN_CLUSTER:-false}
-      K8S_KUBECONFIG_PATH: ${K8S_KUBECONFIG_PATH:-}
+      K8S_KUBECONFIG_PATH: /etc/rancher/k3s/k3s.yaml
+      # BuildKit
+      BUILDKIT_ADDRESS: unix:///var/run/buildkit/buildkitd.sock
+      BUILD_DIR: /tmp/click-deploy-builds
       # Mailtrap Email
       MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN:-}
       MAILTRAP_SENDER_EMAIL: ${MAILTRAP_SENDER_EMAIL:-noreply@zyndra.app}
       MAILTRAP_SENDER_NAME: ${MAILTRAP_SENDER_NAME:-Zyndra}
+    volumes:
+      - /var/run/buildkit:/var/run/buildkit
+      - /etc/rancher/k3s/k3s.yaml:/etc/rancher/k3s/k3s.yaml:ro
+      - /tmp/click-deploy-builds:/tmp/click-deploy-builds
     ports:
       - "127.0.0.1:8080:8080"  # Only accessible from localhost/Caddy
     healthcheck:
