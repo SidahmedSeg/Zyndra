@@ -27,6 +27,8 @@ services:
       dockerfile: Dockerfile
     container_name: zyndra-backend
     restart: unless-stopped
+    env_file:
+      - .env.production
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,7 +51,7 @@ services:
       GITLAB_REDIRECT_URL: ${GITLAB_REDIRECT_URL:-}
       GITLAB_BASE_URL: ${GITLAB_BASE_URL:-}
       # GitHub App (for per-repository access)
-      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-0}
       GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
       GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
       GITHUB_APP_PRIVATE_KEY_BASE64: ${GITHUB_APP_PRIVATE_KEY_BASE64:-}
