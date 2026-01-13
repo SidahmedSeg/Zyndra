@@ -27,6 +27,20 @@ export interface GitHubAppInstallation {
   html_url: string
 }
 
+export interface TreeEntry {
+  name: string
+  path: string
+  sha: string
+  type: 'blob' | 'tree' // blob = file, tree = directory
+  size: number
+}
+
+export interface Branch {
+  Name: string
+  Protected: boolean
+  CommitSHA: string
+}
+
 // Helper to get base URL for OAuth redirects
 const getBaseURL = (): string => {
   if (typeof window === 'undefined') return 'http://localhost:8080'
@@ -137,5 +151,15 @@ export const gitApi = {
 
   listGitHubAppInstallationRepos: (installationId: number) =>
     apiClient.get<GitRepository[]>(`/git/app/github/installations/${installationId}/repos`),
+
+  // Get repository tree (directories and files)
+  getRepoTree: (owner: string, repo: string, branch: string, path?: string) =>
+    apiClient.get<TreeEntry[]>(`/git/repos/${owner}/${repo}/tree?branch=${branch}${path ? `&path=${encodeURIComponent(path)}` : ''}`),
+
+  // Get branches for a repository
+  getRepoBranches: async (owner: string, repo: string): Promise<string[]> => {
+    const branches = await apiClient.get<Branch[]>(`/git/repos/${owner}/${repo}/branches`)
+    return branches.map(b => b.Name)
+  },
 }
 

@@ -8,6 +8,7 @@ import { useChangesStore, type ServiceConfig } from '@/stores/changesStore'
 import { envVarsApi, type EnvVar } from '@/lib/api/env-vars'
 import { customDomainsApi, type CustomDomain } from '@/lib/api/custom-domains'
 import type { Deployment } from '@/lib/api/deployments'
+import DirectoryBrowser from './DirectoryBrowser'
 
 interface ServiceDrawerProps {
   service: Service | null
@@ -742,8 +743,33 @@ function SourceSettings({ service }: { service: Service }) {
   const [branch, setBranch] = useState(service.branch || 'main')
   const [branches, setBranches] = useState(['main', 'develop', 'staging'])
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false)
+  const [directoryBrowserOpen, setDirectoryBrowserOpen] = useState(false)
+  const [loadingBranches, setLoadingBranches] = useState(false)
   
   const { addChange, serviceChanges } = useChangesStore()
+
+  // Load branches from the repository
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (!service.repo_owner || !service.repo_name) return
+      
+      try {
+        setLoadingBranches(true)
+        const { gitApi } = await import('@/lib/api/git')
+        const repoBranches = await gitApi.getRepoBranches(service.repo_owner, service.repo_name || service.name)
+        if (repoBranches && repoBranches.length > 0) {
+          setBranches(repoBranches)
+        }
+      } catch (error) {
+        console.error('Failed to load branches:', error)
+        // Keep default branches on error
+      } finally {
+        setLoadingBranches(false)
+      }
+    }
+    
+    loadBranches()
+  }, [service.repo_owner, service.repo_name, service.name])
 
   const handleRootDirChange = (value: string) => {
     setRootDir(value)
@@ -800,20 +826,32 @@ function SourceSettings({ service }: { service: Service }) {
           </div>
         </div>
 
-        {/* Root directory */}
+        {/* Root directory with browser */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-1">Root directory</label>
           <p className="text-xs text-gray-400 mb-2">
             Select the directory containing your application code. <a href="#" className="text-indigo-600 hover:underline">Docs</a>
           </p>
           <div className="relative">
-            <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={rootDir}
-              onChange={(e) => handleRootDirChange(e.target.value)}
-              className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <button
+              onClick={() => setDirectoryBrowserOpen(!directoryBrowserOpen)}
+              className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors text-left"
+            >
+              <Folder className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-900 flex-1 font-mono">{rootDir}</span>
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+            
+            {directoryBrowserOpen && service.repo_owner && (
+              <DirectoryBrowser
+                owner={service.repo_owner}
+                repo={service.repo_name || service.name}
+                branch={branch}
+                currentPath={rootDir}
+                onSelect={handleRootDirChange}
+                onClose={() => setDirectoryBrowserOpen(false)}
+              />
+            )}
           </div>
         </div>
 
@@ -827,14 +865,19 @@ function SourceSettings({ service }: { service: Service }) {
             <button
               onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
               className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors"
+              disabled={loadingBranches}
             >
               <GitBranch className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-900 flex-1 text-left">{branch}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              {loadingBranches ? (
+                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
             </button>
             
             {branchDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden max-h-48 overflow-y-auto">
                 {branches.map((b) => (
                   <button
                     key={b}

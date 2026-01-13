@@ -20,6 +20,7 @@ import (
 	"github.com/intelifox/click-deploy/internal/k8s"
 	"github.com/intelifox/click-deploy/internal/migrate"
 	"github.com/intelifox/click-deploy/internal/store"
+	"github.com/intelifox/click-deploy/internal/worker"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -192,8 +193,24 @@ func main() {
 		// Git endpoints
 		api.RegisterGitRoutes(r, db, cfg)
 
+		// Initialize k8s client and build worker for deployments
+		var k8sClient *k8s.Client
+		var buildWorker *worker.BuildWorker
+		
+		if cfg.UseK8s {
+			k8sCfg := k8s.Config{
+				InCluster:       cfg.K8sInCluster,
+				KubeconfigPath:  cfg.K8sKubeconfigPath,
+				BaseDomain:      cfg.K8sBaseDomain,
+			}
+			k8sClient, _ = k8s.NewClient(k8sCfg)
+		}
+		
+		// Initialize build worker (it will log errors if BuildKit is not available)
+		buildWorker, _ = worker.NewBuildWorker(db, cfg)
+		
 		// Deployment endpoints
-		api.RegisterDeploymentRoutes(r, db, cfg)
+		api.RegisterDeploymentRoutes(r, db, cfg, buildWorker, k8sClient)
 
 		// Database endpoints
 		api.RegisterDatabaseRoutes(r, db, cfg)

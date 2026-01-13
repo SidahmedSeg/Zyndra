@@ -56,6 +56,42 @@ export default function FloatingDeployBar({
     onDeployStart?.()
     
     try {
+      // First, apply configuration changes to the service
+      const configChanges = changes.filter(c => 
+        ['root_dir', 'branch', 'resource_cpu', 'resource_memory', 'port', 'start_command'].includes(c.type)
+      )
+      
+      if (configChanges.length > 0) {
+        // Build update request from changes
+        const updateRequest: Record<string, string | number> = {}
+        
+        for (const change of configChanges) {
+          switch (change.type) {
+            case 'root_dir':
+              updateRequest.root_dir = change.newValue as string
+              break
+            case 'branch':
+              updateRequest.branch = change.newValue as string
+              break
+            case 'resource_cpu':
+              updateRequest.cpu_limit = change.newValue as string
+              break
+            case 'resource_memory':
+              updateRequest.memory_limit = change.newValue as string
+              break
+            case 'port':
+              updateRequest.port = change.newValue as number
+              break
+            case 'start_command':
+              updateRequest.start_command = change.newValue as string
+              break
+          }
+        }
+        
+        // Apply configuration changes
+        await servicesApi.update(serviceId, updateRequest)
+      }
+      
       // Trigger deployment
       await servicesApi.triggerDeployment(serviceId)
       

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -11,24 +12,35 @@ import (
 
 	"github.com/intelifox/click-deploy/internal/auth"
 	"github.com/intelifox/click-deploy/internal/config"
+	"github.com/intelifox/click-deploy/internal/k8s"
 	"github.com/intelifox/click-deploy/internal/store"
+	"github.com/intelifox/click-deploy/internal/worker"
 )
 
 type DeploymentHandler struct {
-	store  *store.DB
-	config *config.Config
+	store         *store.DB
+	config        *config.Config
+	buildWorker   *worker.BuildWorker
+	k8sWorker     *worker.K8sDeployWorker
 }
 
-func NewDeploymentHandler(store *store.DB, cfg *config.Config) *DeploymentHandler {
+func NewDeploymentHandler(store *store.DB, cfg *config.Config, buildWorker *worker.BuildWorker, k8sClient *k8s.Client) *DeploymentHandler {
+	var k8sWorker *worker.K8sDeployWorker
+	if k8sClient != nil {
+		k8sWorker = worker.NewK8sDeployWorker(store, k8sClient)
+	}
+	
 	return &DeploymentHandler{
-		store:  store,
-		config: cfg,
+		store:       store,
+		config:      cfg,
+		buildWorker: buildWorker,
+		k8sWorker:   k8sWorker,
 	}
 }
 
 // RegisterDeploymentRoutes registers deployment-related routes
-func RegisterDeploymentRoutes(r chi.Router, db *store.DB, cfg *config.Config) {
-	h := NewDeploymentHandler(db, cfg)
+func RegisterDeploymentRoutes(r chi.Router, db *store.DB, cfg *config.Config, buildWorker *worker.BuildWorker, k8sClient *k8s.Client) {
+	h := NewDeploymentHandler(db, cfg, buildWorker, k8sClient)
 
 	r.Post("/services/{id}/deploy", h.TriggerDeployment)
 	r.Get("/deployments/{id}", h.GetDeployment)
@@ -117,8 +129,24 @@ func (h *DeploymentHandler) TriggerDeployment(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: Queue build job in job queue
-	// For now, we'll just return the deployment
+	// Queue build job asynchronously
+	if h.buildWorker != nil && h.k8sWorker != nil {
+		go func() {
+			ctx := context.Background()
+			
+			// Run build
+			if err := h.buildWorker.ProcessBuildJob(ctx, deployment.ID); err != nil {
+				h.store.UpdateDeploymentStatus(ctx, deployment.ID, "failed")
+				return
+			}
+			
+			// Deploy to k8s after successful build
+			if err := h.k8sWorker.DeployToK8s(ctx, deployment.ID); err != nil {
+				h.store.UpdateDeploymentStatus(ctx, deployment.ID, "failed")
+				return
+			}
+		}()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

@@ -1,10 +1,11 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useState, useRef } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
 import type { Service } from '@/lib/api/services'
 import { useServicesStore } from '@/stores/servicesStore'
-import { deploymentsApi, type Deployment, getStatusDisplay } from '@/lib/api/deployments'
+import { useDeploymentsStore } from '@/stores/deploymentsStore'
+import { type Deployment, getStatusDisplay } from '@/lib/api/deployments'
 
 interface ServiceNodeData {
   label: string
@@ -13,54 +14,68 @@ interface ServiceNodeData {
 
 function ServiceNode({ data, selected }: NodeProps<ServiceNodeData>) {
   const { setSelectedService } = useServicesStore()
+  const { activeDeployments, fetchDeployments, pollDeploymentStatus } = useDeploymentsStore()
   const { service } = data
   
-  const [deployment, setDeployment] = useState<Deployment | null>(null)
   const [elapsedTime, setElapsedTime] = useState<string>('00:00')
+  const pollCleanupRef = useRef<(() => void) | null>(null)
+
+  // Get deployment from store
+  const deployment = activeDeployments[service.id] || null
 
   const handleClick = () => {
     setSelectedService(service)
   }
 
-  // Poll for latest deployment status (reduced frequency to avoid rate limits)
+  // Fetch initial deployments and set up polling for active deployments
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
-    let timerIntervalId: NodeJS.Timeout | null = null
-
-    const fetchLatestDeployment = async () => {
-      try {
-        const deployments = await deploymentsApi.listByService(service.id, 1)
-        if (deployments && deployments.length > 0) {
-          setDeployment(deployments[0])
-        }
-      } catch (error) {
-        // Silently fail - don't spam console
+    fetchDeployments(service.id)
+    
+    return () => {
+      // Cleanup polling on unmount
+      if (pollCleanupRef.current) {
+        pollCleanupRef.current()
       }
     }
+  }, [service.id, fetchDeployments])
 
-    // Initial fetch
-    fetchLatestDeployment()
+  // Set up polling when there's an active deployment
+  useEffect(() => {
+    if (deployment && !['success', 'failed', 'cancelled'].includes(deployment.status)) {
+      // Start polling if not already polling
+      if (!pollCleanupRef.current) {
+        pollCleanupRef.current = pollDeploymentStatus(deployment.id, service.id)
+      }
+    } else {
+      // Stop polling if deployment is finished
+      if (pollCleanupRef.current) {
+        pollCleanupRef.current()
+        pollCleanupRef.current = null
+      }
+    }
+  }, [deployment?.id, deployment?.status, service.id, pollDeploymentStatus])
 
-    // Poll every 10 seconds (reduced from 3 to avoid rate limits)
-    intervalId = setInterval(fetchLatestDeployment, 10000)
+  // Elapsed time counter
+  useEffect(() => {
+    let timerIntervalId: NodeJS.Timeout | null = null
 
-    // Elapsed time counter
-    timerIntervalId = setInterval(() => {
-      if (deployment?.started_at && !['success', 'failed', 'cancelled'].includes(deployment.status)) {
-        const started = new Date(deployment.started_at).getTime()
+    if (deployment?.started_at && !['success', 'failed', 'cancelled'].includes(deployment.status)) {
+      timerIntervalId = setInterval(() => {
+        const started = new Date(deployment.started_at!).getTime()
         const now = Date.now()
         const elapsed = Math.floor((now - started) / 1000)
         const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0')
         const seconds = (elapsed % 60).toString().padStart(2, '0')
         setElapsedTime(`${minutes}:${seconds}`)
-      }
-    }, 1000)
+      }, 1000)
+    } else {
+      setElapsedTime('00:00')
+    }
 
     return () => {
-      if (intervalId) clearInterval(intervalId)
       if (timerIntervalId) clearInterval(timerIntervalId)
     }
-  }, [service.id, deployment?.started_at, deployment?.status])
+  }, [deployment?.started_at, deployment?.status])
 
   // Determine display status based on deployment
   const isDeploying = deployment && !['success', 'failed', 'cancelled'].includes(deployment.status)

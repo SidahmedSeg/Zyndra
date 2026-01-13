@@ -110,13 +110,19 @@ func (h *CustomDomainHandler) AddCustomDomain(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	// Get service's floating IP for CNAME target
-	if !service.OpenStackFIPAddress.Valid {
-		WriteError(w, domain.NewAppError(domain.ErrCodeValidation, "Service does not have a floating IP address", http.StatusBadRequest))
-		return
+	// Get target for CNAME - use generated URL or floating IP
+	var targetIP string
+	if service.GeneratedURL.Valid && service.GeneratedURL.String != "" {
+		targetIP = service.GeneratedURL.String
+	} else if service.OpenStackFIPAddress.Valid {
+		targetIP = service.OpenStackFIPAddress.String
+	} else {
+		// Use mock target for development/k3s mode
+		targetIP = h.config.K8sBaseDomain
+		if targetIP == "" {
+			targetIP = "up.zyndra.app"
+		}
 	}
-
-	targetIP := service.OpenStackFIPAddress.String
 
 	// Create custom domain record
 	customDomain := &store.CustomDomain{
@@ -134,20 +140,26 @@ func (h *CustomDomainHandler) AddCustomDomain(w http.ResponseWriter, r *http.Req
 	}
 
 	// Add route to Caddy (even if not verified yet, Caddy will handle it)
-	if err := h.caddy.AddRoute(r.Context(), req.Domain, targetIP, service.Port, true); err != nil {
-		// Log error but don't fail - route can be added later
-		// Update status to error
-		customDomain.Status = "error"
-		h.store.UpdateCustomDomain(r.Context(), customDomain.ID, customDomain)
-		WriteError(w, domain.NewAppError(domain.ErrCodeExternalAPI, "Failed to add route to Caddy: "+err.Error(), http.StatusInternalServerError))
-		return
+	// Skip Caddy if admin URL is not configured (k3s mode uses ingress instead)
+	if h.config.CaddyAdminURL != "" {
+		if err := h.caddy.AddRoute(r.Context(), req.Domain, targetIP, service.Port, true); err != nil {
+			// Log error but don't fail - route can be added later
+			// Update status to pending (DNS verification needed)
+			customDomain.Status = "pending"
+			h.store.UpdateCustomDomain(r.Context(), customDomain.ID, customDomain)
+			// Don't return error - domain is created but needs DNS verification
+			// Frontend will show "Pending DNS" status
+		}
 	}
 
-	// Update status to active
-	customDomain.Status = "active"
-	if err := h.store.UpdateCustomDomain(r.Context(), customDomain.ID, customDomain); err != nil {
-		WriteError(w, domain.ErrDatabase.WithError(err))
-		return
+	// If Caddy route was added successfully, update status to active
+	// Otherwise, leave as pending for DNS verification
+	if customDomain.Status != "pending" {
+		customDomain.Status = "active"
+		if err := h.store.UpdateCustomDomain(r.Context(), customDomain.ID, customDomain); err != nil {
+			WriteError(w, domain.ErrDatabase.WithError(err))
+			return
+		}
 	}
 
 	WriteJSON(w, http.StatusCreated, customDomain)

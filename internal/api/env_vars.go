@@ -44,6 +44,43 @@ type CreateEnvVarRequest struct {
 	LinkType         string    `json:"link_type,omitempty"`          // connection_url, host, port, username, password, database
 }
 
+// EnvVarResponse represents an environment variable in API responses
+type EnvVarResponse struct {
+	ID               string `json:"id"`
+	ServiceID        string `json:"service_id"`
+	Key              string `json:"key"`
+	Value            string `json:"value,omitempty"`
+	IsSecret         bool   `json:"is_secret"`
+	LinkedDatabaseID string `json:"linked_database_id,omitempty"`
+	LinkType         string `json:"link_type,omitempty"`
+	CreatedAt        string `json:"created_at"`
+}
+
+// toEnvVarResponse converts a store.EnvVar to EnvVarResponse
+func toEnvVarResponse(ev *store.EnvVar) EnvVarResponse {
+	resp := EnvVarResponse{
+		ID:        ev.ID.String(),
+		ServiceID: ev.ServiceID.String(),
+		Key:       ev.Key,
+		IsSecret:  ev.IsSecret,
+		CreatedAt: ev.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	
+	if ev.Value.Valid {
+		resp.Value = ev.Value.String
+	}
+	
+	if ev.LinkedDatabaseID.Valid {
+		resp.LinkedDatabaseID = ev.LinkedDatabaseID.String
+	}
+	
+	if ev.LinkType.Valid {
+		resp.LinkType = ev.LinkType.String
+	}
+	
+	return resp
+}
+
 // CreateEnvVar creates a new environment variable
 func (h *EnvVarHandler) CreateEnvVar(w http.ResponseWriter, r *http.Request) {
 	orgID := auth.GetOrgID(r.Context())
@@ -161,7 +198,7 @@ func (h *EnvVarHandler) CreateEnvVar(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(envVar)
+	json.NewEncoder(w).Encode(toEnvVarResponse(envVar))
 }
 
 // ListEnvVars lists environment variables for a service
@@ -206,15 +243,18 @@ func (h *EnvVarHandler) ListEnvVars(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Don't expose secret values
-	for _, ev := range envVars {
-		if ev.IsSecret && ev.Value.Valid {
-			ev.Value = sql.NullString{String: "***", Valid: true}
+	// Convert to response format
+	responses := make([]EnvVarResponse, len(envVars))
+	for i, ev := range envVars {
+		responses[i] = toEnvVarResponse(ev)
+		// Don't expose secret values
+		if ev.IsSecret {
+			responses[i].Value = "***"
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(envVars)
+	json.NewEncoder(w).Encode(responses)
 }
 
 // UpdateEnvVar updates an environment variable
@@ -302,7 +342,7 @@ func (h *EnvVarHandler) UpdateEnvVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(envVar)
+	json.NewEncoder(w).Encode(toEnvVarResponse(envVar))
 }
 
 // DeleteEnvVar deletes an environment variable
