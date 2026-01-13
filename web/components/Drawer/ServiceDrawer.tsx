@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { X, Check, MoreVertical, ChevronDown, ChevronUp, Link2, Trash2, ExternalLink, Copy, Globe, GitBranch, Folder, Cpu, HardDrive, AlertCircle, Loader2, Eye, EyeOff, Plus, RefreshCw } from 'lucide-react'
+import { X, Check, MoreVertical, ChevronDown, ChevronUp, Link2, Trash2, ExternalLink, Copy, Globe, GitBranch, Folder, Cpu, HardDrive, AlertCircle, Loader2, Eye, EyeOff, Plus, RefreshCw, Pencil } from 'lucide-react'
 import { Service, servicesApi } from '@/lib/api/services'
 import { useDeploymentsStore } from '@/stores/deploymentsStore'
 import { useChangesStore, type ServiceConfig } from '@/stores/changesStore'
@@ -741,12 +741,18 @@ function SettingsTab({
 function SourceSettings({ service }: { service: Service }) {
   const [rootDir, setRootDir] = useState(service.root_dir || '/')
   const [branch, setBranch] = useState(service.branch || 'main')
-  const [branches, setBranches] = useState(['main', 'develop', 'staging'])
+  const [branches, setBranches] = useState<string[]>(['main', 'develop', 'staging'])
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false)
   const [directoryBrowserOpen, setDirectoryBrowserOpen] = useState(false)
   const [loadingBranches, setLoadingBranches] = useState(false)
+  const [repoSelectorOpen, setRepoSelectorOpen] = useState(false)
+  const [availableRepos, setAvailableRepos] = useState<Array<{ name: string; owner: string; full_name: string }>>([])
+  const [loadingRepos, setLoadingRepos] = useState(false)
   
   const { addChange, serviceChanges } = useChangesStore()
+
+  // Check if repo is connected
+  const hasRepo = service.repo_owner && service.repo_name
 
   // Load branches from the repository
   useEffect(() => {
@@ -756,7 +762,7 @@ function SourceSettings({ service }: { service: Service }) {
       try {
         setLoadingBranches(true)
         const { gitApi } = await import('@/lib/api/git')
-        const repoBranches = await gitApi.getRepoBranches(service.repo_owner, service.repo_name || service.name)
+        const repoBranches = await gitApi.getRepoBranches(service.repo_owner, service.repo_name)
         if (repoBranches && repoBranches.length > 0) {
           setBranches(repoBranches)
         }
@@ -769,10 +775,28 @@ function SourceSettings({ service }: { service: Service }) {
     }
     
     loadBranches()
-  }, [service.repo_owner, service.repo_name, service.name])
+  }, [service.repo_owner, service.repo_name])
+
+  // Load available repos when repo selector opens
+  const handleOpenRepoSelector = async () => {
+    setRepoSelectorOpen(true)
+    if (availableRepos.length === 0) {
+      try {
+        setLoadingRepos(true)
+        const { gitApi } = await import('@/lib/api/git')
+        const repos = await gitApi.listRepositories('github')
+        setAvailableRepos(repos.map(r => ({ name: r.name, owner: r.owner, full_name: r.full_name })))
+      } catch (error) {
+        console.error('Failed to load repos:', error)
+      } finally {
+        setLoadingRepos(false)
+      }
+    }
+  }
 
   const handleRootDirChange = (value: string) => {
     setRootDir(value)
+    setDirectoryBrowserOpen(false)
     const original = serviceChanges[service.id]?.originalConfig.rootDir || '/'
     if (value !== original) {
       addChange(service.id, {
@@ -812,89 +836,154 @@ function SourceSettings({ service }: { service: Service }) {
         </div>
 
         {/* Source repository */}
-        <div className="mb-5">
+        <div className="mb-5 relative">
           <label className="block text-sm font-medium text-gray-700 mb-2">Source repository</label>
           <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white">
             <img src="/github-icon.svg" alt="" className="w-5 h-5" />
-            <span className="text-sm text-gray-900 flex-1">{service.repo_owner}/{service.repo_name || service.name}</span>
-            <button className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <Link2 className="w-4 h-4 text-gray-400" />
-            </button>
-            <button className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              Disconnect
+            <span className="text-sm text-gray-900 flex-1">
+              {hasRepo ? `${service.repo_owner}/${service.repo_name}` : 'No repository connected'}
+            </span>
+            <button 
+              onClick={handleOpenRepoSelector}
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Change repository"
+            >
+              <Pencil className="w-4 h-4 text-gray-400" />
             </button>
           </div>
-        </div>
 
-        {/* Root directory with browser */}
-        <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Root directory</label>
-          <p className="text-xs text-gray-400 mb-2">
-            Select the directory containing your application code. <a href="#" className="text-indigo-600 hover:underline">Docs</a>
-          </p>
-          <div className="relative">
-            <button
-              onClick={() => setDirectoryBrowserOpen(!directoryBrowserOpen)}
-              className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors text-left"
-            >
-              <Folder className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-900 flex-1 font-mono">{rootDir}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            </button>
-            
-            {directoryBrowserOpen && service.repo_owner && (
-              <DirectoryBrowser
-                owner={service.repo_owner}
-                repo={service.repo_name || service.name}
-                branch={branch}
-                currentPath={rootDir}
-                onSelect={handleRootDirChange}
-                onClose={() => setDirectoryBrowserOpen(false)}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Branch */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Branch synced with production</label>
-          <p className="text-xs text-gray-400 mb-2">
-            Updates to this branch will trigger automatic deployments.
-          </p>
-          <div className="relative">
-            <button
-              onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
-              className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors"
-              disabled={loadingBranches}
-            >
-              <GitBranch className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-900 flex-1 text-left">{branch}</span>
-              {loadingBranches ? (
-                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              )}
-            </button>
-            
-            {branchDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden max-h-48 overflow-y-auto">
-                {branches.map((b) => (
-                  <button
-                    key={b}
-                    onClick={() => handleBranchChange(b)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                      b === branch ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'
-                    }`}
-                  >
-                    <GitBranch className="w-4 h-4" />
-                    {b}
-                    {b === branch && <Check className="w-4 h-4 ml-auto" />}
-                  </button>
-                ))}
+          {/* Repo Selector Dropdown */}
+          {repoSelectorOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden max-h-64">
+              <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500 uppercase">Select Repository</span>
+                <button onClick={() => setRepoSelectorOpen(false)} className="p-1 hover:bg-gray-100 rounded">
+                  <X className="w-3.5 h-3.5 text-gray-400" />
+                </button>
               </div>
-            )}
-          </div>
+              <div className="overflow-y-auto max-h-52">
+                {loadingRepos ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : availableRepos.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-sm text-gray-400">
+                    No repositories found
+                  </div>
+                ) : (
+                  availableRepos.map((repo) => (
+                    <button
+                      key={repo.full_name}
+                      onClick={() => {
+                        // TODO: Call API to update service repo
+                        console.log('Select repo:', repo)
+                        setRepoSelectorOpen(false)
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors text-left ${
+                        service.repo_name === repo.name ? 'bg-indigo-50' : ''
+                      }`}
+                    >
+                      <img src="/github-icon.svg" alt="" className="w-4 h-4 opacity-60" />
+                      <span className="text-gray-700 truncate">{repo.full_name}</span>
+                      {service.repo_name === repo.name && (
+                        <Check className="w-4 h-4 text-indigo-600 ml-auto flex-shrink-0" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Root directory with browser - only show if repo connected */}
+        {hasRepo && (
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Root directory</label>
+            <p className="text-xs text-gray-400 mb-2">
+              Select the directory containing your application code. <a href="#" className="text-indigo-600 hover:underline">Docs</a>
+            </p>
+            <div className="relative">
+              <button
+                onClick={() => setDirectoryBrowserOpen(!directoryBrowserOpen)}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors text-left"
+              >
+                <Folder className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-900 flex-1 font-mono">{rootDir}</span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+              
+              {directoryBrowserOpen && service.repo_owner && service.repo_name && (
+                <DirectoryBrowser
+                  owner={service.repo_owner}
+                  repo={service.repo_name}
+                  branch={branch}
+                  currentPath={rootDir}
+                  onSelect={handleRootDirChange}
+                  onClose={() => setDirectoryBrowserOpen(false)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Branch - only show if repo connected */}
+        {hasRepo && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Branch synced with production</label>
+            <p className="text-xs text-gray-400 mb-2">
+              Updates to this branch will trigger automatic deployments.
+            </p>
+            <div className="relative">
+              <button
+                onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
+                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors"
+                disabled={loadingBranches}
+              >
+                <GitBranch className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-900 flex-1 text-left">{branch}</span>
+                {loadingBranches ? (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              
+              {branchDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden max-h-48 overflow-y-auto">
+                  {branches.map((b) => (
+                    <button
+                      key={b}
+                      onClick={() => handleBranchChange(b)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                        b === branch ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'
+                      }`}
+                    >
+                      <GitBranch className="w-4 h-4" />
+                      {b}
+                      {b === branch && <Check className="w-4 h-4 ml-auto" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* No repo connected message */}
+        {!hasRepo && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-medium text-amber-800">No repository connected</h4>
+                <p className="text-xs text-amber-700 mt-1">
+                  Click the edit icon above to connect a GitHub repository.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -36,9 +36,9 @@ export interface TreeEntry {
 }
 
 export interface Branch {
-  Name: string
-  Protected: boolean
-  CommitSHA: string
+  name: string
+  protected: boolean
+  commit_sha: string
 }
 
 // Helper to get base URL for OAuth redirects
@@ -158,8 +158,13 @@ export const gitApi = {
 
   // Get branches for a repository
   getRepoBranches: async (owner: string, repo: string): Promise<string[]> => {
-    const branches = await apiClient.get<Branch[]>(`/git/repos/${owner}/${repo}/branches`)
-    return branches.map(b => b.Name)
+    try {
+      const branches = await apiClient.get<Branch[]>(`/git/repos/${owner}/${repo}/branches`)
+      return branches.map(b => b.name)
+    } catch (error) {
+      console.error('Failed to fetch branches:', error)
+      return ['main', 'master'] // Fallback
+    }
   },
 }
 

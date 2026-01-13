@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -113,13 +114,28 @@ func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request)
 		serviceID = sql.NullString{String: req.ServiceID.String(), Valid: true}
 	}
 
-	// Create database
+	// Auto-create volume for the database (500MB default)
+	volume := &store.Volume{
+		ProjectID:  projectID,
+		Name:       fmt.Sprintf("%s-volume", req.Engine),
+		SizeMB:     req.VolumeSizeMB,
+		Status:     "pending",
+		VolumeType: "database_auto",
+	}
+
+	if err := h.store.CreateVolume(r.Context(), volume); err != nil {
+		http.Error(w, "Failed to create volume: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create database with linked volume
 	database := &store.Database{
 		ServiceID:    serviceID,
 		Engine:       req.Engine,
 		Size:         req.Size,
+		VolumeID:     sql.NullString{String: volume.ID.String(), Valid: true},
 		VolumeSizeMB: req.VolumeSizeMB,
-		Status:       "pending",
+		Status:       "provisioning",
 	}
 
 	if req.Version != "" {
@@ -127,11 +143,21 @@ func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.store.CreateDatabase(r.Context(), database); err != nil {
+		// Cleanup volume on failure
+		_ = h.store.DeleteVolume(r.Context(), volume.ID)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// TODO: Queue provision_db job
+	// Update volume with database link
+	volume.AttachedToDatabaseID = sql.NullString{String: database.ID.String(), Valid: true}
+	volume.Status = "attached"
+	if err := h.store.UpdateVolume(r.Context(), volume.ID, volume); err != nil {
+		// Log but don't fail
+		fmt.Printf("Warning: failed to update volume with database link: %v\n", err)
+	}
+
+	// TODO: Queue provision_db job (k8s StatefulSet creation)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

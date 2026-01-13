@@ -2,7 +2,7 @@
 
 import { memo } from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
-import { HardDrive, CheckCircle, XCircle, Clock, Link } from 'lucide-react'
+import { HardDrive } from 'lucide-react'
 import type { Volume } from '@/lib/api/volumes'
 import { useVolumesStore } from '@/stores/volumesStore'
 
@@ -14,52 +14,31 @@ interface VolumeNodeData {
 function VolumeNode({ data, selected }: NodeProps<VolumeNodeData>) {
   const { volume } = data
   const { setSelectedVolume } = useVolumesStore()
-  const statusColor = {
-    available: 'bg-green-500',
-    attached: 'bg-blue-500',
-    error: 'bg-red-500',
-    pending: 'bg-yellow-500',
-  }[volume.status] || 'bg-gray-400'
 
-  const StatusIcon = {
-    available: CheckCircle,
-    attached: Link,
-    error: XCircle,
-    pending: Clock,
-  }[volume.status] || Clock
-
-  const sizeGB = (volume.size_mb / 1024).toFixed(1)
+  // Calculate size for display
+  const sizeDisplay = volume.size_mb >= 1024 
+    ? `${(volume.size_mb / 1024).toFixed(1)} GB`
+    : `${volume.size_mb} MB`
 
   return (
     <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 min-w-[200px] cursor-pointer ${
-        selected ? 'border-blue-500' : 'border-gray-300'
-      } bg-white`}
       onClick={() => setSelectedVolume(volume)}
+      className="rounded-xl min-w-[280px] cursor-pointer bg-indigo-50 border border-indigo-100 overflow-hidden transition-all duration-200"
+      style={{ borderColor: selected ? '#4F46E5' : 'rgb(224, 231, 255)' }}
     >
-      <Handle type="target" position={Position.Top} />
+      <Handle type="target" position={Position.Top} className="!bg-gray-400 !w-2 !h-2" />
       
-      <div className="flex items-center gap-2 mb-2">
-        <HardDrive className="w-5 h-5 text-purple-600" />
-        <div className="flex-1">
-          <div className="font-semibold text-sm">{data.label}</div>
-          <div className="text-xs text-gray-500">{sizeGB} GB</div>
-        </div>
-        <div className={`w-3 h-3 rounded-full ${statusColor}`} />
+      {/* Compact content */}
+      <div className="px-4 py-3 flex items-center gap-3">
+        <HardDrive className="w-5 h-5 text-indigo-400" />
+        <span className="text-sm font-medium text-indigo-700">{data.label}</span>
+        <span className="text-xs text-indigo-400 ml-auto">{sizeDisplay}</span>
+        {volume.status === 'attached' && (
+          <span className="text-xs text-indigo-400">• Attached</span>
+        )}
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-gray-600">
-        <StatusIcon className="w-3 h-3" />
-        <span className="capitalize">{volume.status}</span>
-      </div>
-
-      {volume.mount_path && (
-        <div className="mt-2 text-xs text-gray-500 truncate">
-          {volume.mount_path}
-        </div>
-      )}
-
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} className="!bg-gray-400 !w-2 !h-2" />
     </div>
   )
 }

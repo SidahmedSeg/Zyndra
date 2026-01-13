@@ -31,15 +31,28 @@ export default function DirectoryBrowser({
     try {
       setLoading(true)
       setError(null)
-      const tree = await gitApi.getRepoTree(owner, repo, branch, path)
+      const tree = await gitApi.getRepoTree(owner, repo, branch, path || '')
+      // Handle null/undefined response
+      if (!tree || !Array.isArray(tree)) {
+        setEntries([])
+        return
+      }
       // Filter to only show directories (trees)
-      const directories = tree.filter(entry => entry.type === 'tree')
+      const directories = tree.filter(entry => entry && entry.type === 'tree')
       // Sort alphabetically
-      directories.sort((a, b) => a.name.localeCompare(b.name))
+      directories.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
       setEntries(directories)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load directory:', err)
-      setError('Failed to load repository contents')
+      // More specific error messages
+      if (err?.status === 404) {
+        setError('Repository or branch not found')
+      } else if (err?.status === 401 || err?.status === 403) {
+        setError('No permission to access repository')
+      } else {
+        setError('Failed to load repository contents')
+      }
+      setEntries([])
     } finally {
       setLoading(false)
     }
